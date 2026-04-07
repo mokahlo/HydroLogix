@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Travel Mode Analysis Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb bg-orb-a"></div>
+    <div class="bg-orb bg-orb-b"></div>
+    <header class="hero">
+      <p class="eyebrow">Mode Shift Explorer</p>
+      <h1>Travel Mode Cost and Climate Dashboard</h1>
+      <p class="subhead">
+        Compare driving and flying across cost, carbon footprint, total time, and value-of-time. Tune seat class,
+        occupancy, deadhead, and operating assumptions to reveal when each mode wins.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel controls" aria-label="inputs">
+        <div class="controls-header">
+          <h2>Scenario Inputs</h2>
+          <button id="resetBtn" class="reset-btn">Reset to Defaults</button>
+        </div>
+
+        <div class="control-grid">
+          <label>
+            Trip distance (miles)
+            <input id="distanceMiles" type="range" min="50" max="2500" step="10" value="600" />
+            <span data-output="distanceMiles"></span>
+          </label>
+
+          <label>
+            Passenger average wage ($/hour)
+            <input id="passengerWage" type="range" min="10" max="220" step="1" value="35" />
+            <span data-output="passengerWage"></span>
+          </label>
+
+          <label>
+            Wage-to-time value factor (%)
+            <input id="wageTimeFactor" type="range" min="25" max="200" step="5" value="100" />
+            <span data-output="wageTimeFactor"></span>
+            <span class="hint">100% = leisure time valued at full wage. Lower % for unpaid travel.</span>
+          </label>
+
+          <label>
+            Fuel price ($/gal)
+            <input id="gasPrice" type="range" min="2" max="8" step="0.05" value="3.9" />
+            <span data-output="gasPrice"></span>
+          </label>
+
+          <label>
+            Electricity price ($/kWh)
+            <input id="electricityPrice" type="range" min="0.08" max="0.4" step="0.01" value="0.14" />
+            <span data-output="electricityPrice"></span>
+          </label>
+
+          <label>
+            Grid intensity (kg CO2/kWh)
+            <input id="gridIntensity" type="range" min="0.05" max="0.9" step="0.01" value="0.38" />
+            <span data-output="gridIntensity"></span>
+            <span class="hint">US average ~0.38. Cleaner regions (CA/OR) ≈0.15–0.20. Dirtier (WV/WY) ≈0.70.</span>
+          </label>
+
+          <label>
+            Flight seat type
+            <select id="seatType">
+              <option value="economy">Economy</option>
+              <option value="premium">Premium Economy</option>
+              <option value="business">Business</option>
+            </select>
+            <span class="hint">Seat class changes fare and climate footprint.</span>
+          </label>
+        </div>
+
+        <h3>Drive Assumptions</h3>
+        <div class="control-grid">
+          <label>
+            EV occupancy
+            <input id="evOccupancy" type="range" min="1" max="6" step="1" value="1" />
+            <span data-output="evOccupancy"></span>
+          </label>
+
+          <label>
+            SUV occupancy
+            <input id="suvOccupancy" type="range" min="1" max="7" step="1" value="2" />
+            <span data-output="suvOccupancy"></span>
+          </label>
+
+          <label>
+            Hybrid occupancy
+            <input id="hybridOccupancy" type="range" min="1" max="7" step="1" value="1" />
+            <span data-output="hybridOccupancy"></span>
+          </label>
+
+          <label>
+            EV efficiency (kWh/mi)
+            <input id="evEfficiency" type="range" min="0.18" max="0.55" step="0.01" value="0.31" />
+            <span data-output="evEfficiency"></span>
+          </label>
+
+          <label>
+            SUV efficiency (mpg)
+            <input id="suvMpg" type="range" min="12" max="35" step="1" value="22" />
+            <span data-output="suvMpg"></span>
+          </label>
+
+          <label>
+            Hybrid efficiency (mpg)
+            <input id="hybridMpg" type="range" min="25" max="65" step="1" value="44" />
+            <span data-output="hybridMpg"></span>
+          </label>
+
+          <label>
+            Driving speed (mph)
+            <input id="driveSpeed" type="range" min="35" max="80" step="1" value="58" />
+            <span data-output="driveSpeed"></span>
+          </label>
+
+          <label>
+            Tolls and parking ($/trip)
+            <input id="driveFixedCost" type="range" min="0" max="150" step="1" value="25" />
+            <span data-output="driveFixedCost"></span>
+          </label>
+
+          <label>
+            Drive deadhead time (hours)
+            <input id="driveDeadheadHours" type="range" min="0" max="3" step="0.1" value="0.4" />
+            <span data-output="driveDeadheadHours"></span>
+            <span class="hint">Extra time to reach car/parking: loading, starting, picking up passengers, etc.</span>
+          </label>
+        </div>
+
+        <h3>Flight Assumptions</h3>
+        <div class="control-grid">
+          <label>
+            Base fare ($)
+            <input id="flightBaseFare" type="range" min="30" max="500" step="5" value="85" />
+            <span data-output="flightBaseFare"></span>
+          </label>
+
+          <label>
+            Fare per mile ($/mi)
+            <input id="flightFarePerMile" type="range" min="0.04" max="0.35" step="0.01" value="0.12" />
+            <span data-output="flightFarePerMile"></span>
+          </label>
+
+          <label>
+            Airport fixed cost ($)
+            <input id="flightFixedCost" type="range" min="0" max="150" step="1" value="35" />
+            <span data-output="flightFixedCost"></span>
+          </label>
+
+          <label>
+            Airport process time (hours)
+            <input id="flightFixedTime" type="range" min="0.5" max="5" step="0.1" value="2.4" />
+            <span data-output="flightFixedTime"></span>
+            <span class="hint">Total: drive/transit to airport, check-in, security, boarding, plus arrival/baggage at destination.</span>
+          </label>
+
+          <label>
+            Flight speed (mph)
+            <input id="flightSpeed" type="range" min="300" max="580" step="5" value="500" />
+            <span data-output="flightSpeed"></span>
+          </label>
+
+          <label>
+            Flight CO2 intensity (kg CO2 / passenger-mile)
+            <input id="flightCo2PerMile" type="range" min="0.08" max="0.5" step="0.01" value="0.22" />
+            <span data-output="flightCo2PerMile"></span>
+            <span class="hint">Includes fuel burn. Newer aircraft ≈0.15. Includes radiative forcing multiplier.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel outputs" aria-label="results">
+        <h2>Results at Current Distance</h2>
+        <div class="results-meta">
+          <p class="effective-vot">Value of time: <strong id="effectiveVot"></strong></p>
+          <p class="effective-vot">Flight effective fare/mi: <strong id="effectiveFlightFare"></strong></p>
+        </div>
+
+        <div id="cards" class="cards"></div>
+
+        <div class="chart-area">
+          <h3>Relative Comparison</h3>
+          <div id="barChart" class="bar-chart" role="img" aria-label="normalized comparison chart"></div>
+        </div>
+
+        <div class="insights">
+          <h3>Break-Even & Insights</h3>
+          <ul id="insightList"></ul>
+        </div>
+
+        <div class="ideas">
+          <h3>More Characteristics To Compare</h3>
+          <ul id="ideaList"></ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Note: values are scenario estimates, not route-specific forecasts. Use this as a decision sandbox for policy,
+        planning, or personal travel choices.
+      </p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
