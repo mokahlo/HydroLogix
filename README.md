@@ -60,6 +60,20 @@ Notes:
 
 - Vercel runs Node 18+ and supports global `fetch`. The included `api/estimate.js` uses OpenStreetMap Nominatim for geocoding — consider using a paid geocoding provider and caching for production.
 
+### Automatic deploy via GitHub Actions
+
+A workflow is included at `.github/workflows/deploy-vercel.yml` to deploy the site to Vercel automatically on pushes to `main`. To enable it:
+
+1. Create a Vercel token: go to https://vercel.com/account/tokens and generate a token.
+2. Get your Vercel Organization ID and Project ID from the Project settings (or use the Vercel dashboard when importing the repo).
+3. In your GitHub repo, go to Settings → Secrets and variables → Actions and add the following secrets:
+  - `VERCEL_TOKEN` — the token from step 1
+  - `VERCEL_ORG_ID` — your organization ID
+  - `VERCEL_PROJECT_ID` — your project ID
+4. Push to `main` and the workflow will run and deploy the site (serverless `/api/estimate` will be live at `/api/estimate`).
+
+Alternative: instead of the Actions workflow, connect your GitHub repo directly in the Vercel UI (https://vercel.com/new) and import the project — Vercel will deploy automatically without setting repo secrets.
+
 ## Model notes
 
 - Driving costs and emissions are allocated per traveler using occupancy.
