@@ -41,6 +41,25 @@ Notes:
 - If you supply `TRIP_API_PROVIDER` and API credentials, extend `server.js` to call the provider-specific endpoints (Amadeus, Skyscanner/RapidAPI, etc.). The current server will use OpenStreetMap Nominatim to geocode city names and return plausible flight/drive estimates when no provider is configured.
 - Be mindful of Nominatim rate limits; for production use get a geocoding API key and cache results.
 
+### Deploy to Vercel
+
+You can deploy both the static site and the API to Vercel. Vercel will serve `index.html` as the static frontend and any files under `api/` as serverless functions (including `/api/estimate`).
+
+Quick steps:
+
+1. Push the repository to GitHub (already done).
+2. Go to https://vercel.com/new and import your GitHub repository.
+3. Vercel will detect the `api/` folder and create a serverless function for `/api/estimate`.
+4. After deployment the API will be available at `https://<your-deployment>.vercel.app/api/estimate`.
+
+Environment variables:
+
+- `TRIP_API_PROVIDER` and `TRIP_API_KEY` can be added in the Vercel dashboard under Project Settings → Environment Variables.
+
+Notes:
+
+- Vercel runs Node 18+ and supports global `fetch`. The included `api/estimate.js` uses OpenStreetMap Nominatim for geocoding — consider using a paid geocoding provider and caching for production.
+
 ## Model notes
 
 - Driving costs and emissions are allocated per traveler using occupancy.
