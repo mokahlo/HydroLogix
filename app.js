@@ -4,7 +4,16 @@ const seatProfiles = {
   business: { costMultiplier: 2.45, co2Multiplier: 1.9, label: "Business" },
 };
 
+const DEFAULT_FLIGHT_SPEED = 500; // mph, used when no user input is provided
+const DEFAULT_DRIVE_SPEED = 58; // mph, typical average used when unknown
+
 const ids = [
+  "fromCity",
+  "toCity",
+  "departDate",
+  "returnDate",
+  "travelMode",
+  "passengers",
   "distanceMiles",
   "passengerWage",
   "wageTimeFactor",
@@ -14,28 +23,17 @@ const ids = [
   "publicChargeShare",
   "gridIntensity",
   "seatType",
-  "evOccupancy",
-  "suvOccupancy",
-  "hybridOccupancy",
-  "evEfficiency",
-  "evRange",
-  "evChargeSpeed",
-  "evChargePowerFactor",
-  "evChargeStopOverhead",
-  "suvMpg",
-  "hybridMpg",
+  "vehicleType",
   "driveSpeed",
   "driveFixedCost",
   "driveDeadheadHours",
-  "flightBaseFare",
-  "flightFarePerMile",
-  "flightFixedCost",
+  "airfareTotal",
   "flightFixedTime",
-  "flightSpeed",
   "flightCo2PerMile",
 ];
 
 const state = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+const tripEstimateEl = document.getElementById("tripEstimate");
 const cardsEl = document.getElementById("cards");
 const chartEl = document.getElementById("barChart");
 const insightListEl = document.getElementById("insightList");
@@ -54,7 +52,9 @@ const comparisonIdeas = [
 
 function value(id) {
   const input = state[id];
-  if (input.type === "select-one") {
+  if (!input) return null;
+  const t = input.type;
+  if (t === "select-one" || t === "text" || t === "date") {
     return input.value;
   }
   return Number(input.value);
@@ -76,78 +76,61 @@ function buildModeModels() {
   const publicChargeShare = value("publicChargeShare") / 100;
   const electricPrice = privateElectricPrice * (1 - publicChargeShare) + publicElectricPrice * publicChargeShare;
   const gridIntensity = value("gridIntensity");
-
-  const evEfficiency = value("evEfficiency");
-  const evRange = Math.max(1, value("evRange"));
-  const evChargeSpeed = Math.max(1, value("evChargeSpeed"));
-  const evChargePowerFactor = Math.max(0.01, value("evChargePowerFactor") / 100);
-  const evChargeStopOverheadHours = Math.max(0, value("evChargeStopOverhead") / 60);
-  const suvMpg = value("suvMpg");
-  const hybridMpg = value("hybridMpg");
-  const driveSpeed = value("driveSpeed");
+  const vehicleType = value("vehicleType") || "midsize";
+  let driveSpeed = Number(value("driveSpeed"));
+  if (!driveSpeed || Number.isNaN(driveSpeed) || driveSpeed <= 0) {
+    driveSpeed = DEFAULT_DRIVE_SPEED;
+  }
   const driveFixedCost = value("driveFixedCost");
   const driveDeadhead = value("driveDeadheadHours");
+  const passengers = Math.max(1, Number(value("passengers") || 1));
 
-  // Effective charging includes tapering and site variability, configured by user assumptions.
-  const effectiveChargePower = evChargeSpeed * evChargePowerFactor;
-  const chargingHoursPerMile = evEfficiency / effectiveChargePower + evChargeStopOverheadHours / evRange;
+  const vehicleProfiles = {
+    small: { kind: "gas", mpg: 35, label: "Small car" },
+    midsize: { kind: "gas", mpg: 28, label: "Midsize car" },
+    suv: { kind: "gas", mpg: 22, label: "SUV" },
+    hybrid: { kind: "gas", mpg: 45, label: "Hybrid" },
+    ev: { kind: "ev", kwhPerMile: 0.31, label: "EV" },
+  };
 
-  const evOccupancy = Math.max(1, value("evOccupancy"));
-  const suvOccupancy = Math.max(1, value("suvOccupancy"));
-  const hybridOccupancy = Math.max(1, value("hybridOccupancy"));
+  const profile = vehicleProfiles[vehicleType] || vehicleProfiles.midsize;
 
-  const flightBaseFare = value("flightBaseFare");
-  const flightFarePerMile = value("flightFarePerMile");
-  const flightFixedCost = value("flightFixedCost");
+  let driveCostPerMile = 0;
+  let driveCo2PerMile = 0;
+  const hoursPerMileDrive = 1 / driveSpeed;
+
+  if (profile.kind === "ev") {
+    driveCostPerMile = (profile.kwhPerMile * electricPrice) / passengers;
+    driveCo2PerMile = (profile.kwhPerMile * gridIntensity) / passengers;
+  } else {
+    driveCostPerMile = (gasPrice / profile.mpg) / passengers;
+    driveCo2PerMile = (8.887 / profile.mpg) / passengers;
+  }
+
+  const airfareTotal = Number(value("airfareTotal") || 0);
   const flightFixedTime = value("flightFixedTime");
-  const flightSpeed = value("flightSpeed");
   const flightCo2PerMile = value("flightCo2PerMile");
 
   return [
     {
-      id: "ev",
-      name: `Drive EV (${evOccupancy} occ.)`,
-      tags: ["Drive", "Electric"],
-      fixedCost: driveFixedCost / evOccupancy,
-      costPerMile: (evEfficiency * electricPrice) / evOccupancy,
+      id: "drive",
+      name: `Drive ${profile.label} (${passengers} occ.)`,
+      tags: ["Drive", profile.kind === "ev" ? "Electric" : "Gas"],
+      fixedCost: driveFixedCost / passengers,
+      costPerMile: driveCostPerMile,
       fixedTime: driveDeadhead,
-      hoursPerMile: 1 / driveSpeed + chargingHoursPerMile,
+      hoursPerMile: hoursPerMileDrive,
       fixedCo2: 0,
-      co2PerMile: (evEfficiency * gridIntensity) / evOccupancy,
-      evRange,
-      chargingHoursPerMile,
-      effectiveChargePower,
-    },
-    {
-      id: "suv",
-      name: `Drive SUV (${suvOccupancy} occ.)`,
-      tags: ["Drive", "Gas"],
-      fixedCost: driveFixedCost / suvOccupancy,
-      costPerMile: (gasPrice / suvMpg) / suvOccupancy,
-      fixedTime: driveDeadhead,
-      hoursPerMile: 1 / driveSpeed,
-      fixedCo2: 0,
-      co2PerMile: (8.887 / suvMpg) / suvOccupancy,
-    },
-    {
-      id: "hybrid",
-      name: `Drive Hybrid (${hybridOccupancy} occ.)`,
-      tags: ["Drive", "Hybrid"],
-      fixedCost: driveFixedCost / hybridOccupancy,
-      costPerMile: (gasPrice / hybridMpg) / hybridOccupancy,
-      fixedTime: driveDeadhead,
-      hoursPerMile: 1 / driveSpeed,
-      fixedCo2: 0,
-      co2PerMile: (8.887 / hybridMpg) / hybridOccupancy,
+      co2PerMile: driveCo2PerMile,
     },
     {
       id: "flight",
       name: `Fly ${seat.label}`,
       tags: ["Flight"],
-      fixedCost: flightFixedCost + flightBaseFare * seat.costMultiplier,
-      costPerMile: flightFarePerMile * seat.costMultiplier,
+      fixedCost: airfareTotal * seat.costMultiplier,
+      costPerMile: 0,
       fixedTime: flightFixedTime,
-      hoursPerMile: 1 / flightSpeed,
+      hoursPerMile: 1 / DEFAULT_FLIGHT_SPEED,
       fixedCo2: 0,
       co2PerMile: flightCo2PerMile * seat.co2Multiplier,
     },
@@ -158,9 +141,6 @@ function evaluateMode(mode, distance, valueOfTime) {
   const monetaryCost = mode.fixedCost + mode.costPerMile * distance;
   const hours = mode.fixedTime + mode.hoursPerMile * distance;
   const co2 = mode.fixedCo2 + mode.co2PerMile * distance;
-  const chargeStops = mode.id === "ev" ? Math.max(0, Math.ceil(distance / mode.evRange) - 1) : 0;
-  const chargeHours = mode.id === "ev" ? mode.chargingHoursPerMile * distance : 0;
-
   return {
     ...mode,
     distance,
@@ -168,8 +148,6 @@ function evaluateMode(mode, distance, valueOfTime) {
     hours,
     co2,
     generalizedCost: monetaryCost + valueOfTime * hours,
-    chargeStops,
-    chargeHours,
   };
 }
 
@@ -193,11 +171,6 @@ function buildCard(result, flags, index) {
     <p class="metric">Monetary cost: <strong>${money(result.monetaryCost)}</strong></p>
     <p class="metric">Carbon: <strong>${num(result.co2)} kg</strong></p>
     <p class="metric">Door-to-door time: <strong>${num(result.hours)} h</strong></p>
-    ${
-      result.id === "ev"
-        ? `<p class="metric">Estimated charge stops: <strong>${num(result.chargeStops, 0)}</strong> (charging time ${num(result.chargeHours)} h)</p>`
-        : ""
-    }
     <p class="metric">Generalized cost ($ + time): <strong>${money(result.generalizedCost)}</strong></p>
   `;
   return card;
@@ -262,73 +235,38 @@ function buildCostModel(result, valueOfTime) {
 
 function buildInsights(results, valueOfTime) {
   const modeById = Object.fromEntries(results.map((r) => [r.id, r]));
-  const ev = modeById.ev;
-  const suv = modeById.suv;
-  const hybrid = modeById.hybrid;
+  const drive = modeById.drive;
   const flight = modeById.flight;
 
-  const evModel = buildCostModel(ev, valueOfTime);
-  const suvModel = buildCostModel(suv, valueOfTime);
-  const hybridModel = buildCostModel(hybrid, valueOfTime);
+  const driveModel = buildCostModel(drive, valueOfTime);
   const flightModel = buildCostModel(flight, valueOfTime);
 
   const insights = [];
 
-  const costEvFlight = breakEvenDistance(evModel, flightModel, "cost");
-  const co2EvFlight = breakEvenDistance(evModel, flightModel, "co2");
-  const genEvFlight = breakEvenDistance(evModel, flightModel, "generalized");
+  const costDriveFlight = breakEvenDistance(driveModel, flightModel, "cost");
+  const co2DriveFlight = breakEvenDistance(driveModel, flightModel, "co2");
+  const genDriveFlight = breakEvenDistance(driveModel, flightModel, "generalized");
 
-  if (costEvFlight) {
-    insights.push(`EV vs flight cost break-even: ~${num(costEvFlight, 0)} miles.`);
+  if (costDriveFlight) {
+    insights.push(`Drive vs flight cost break-even: ~${num(costDriveFlight, 0)} miles.`);
   } else {
-    insights.push("EV vs flight cost: no positive break-even in current assumptions.");
+    insights.push("Drive vs flight cost: no positive break-even in current assumptions.");
   }
 
-  if (co2EvFlight) {
-    insights.push(`EV vs flight carbon break-even: ~${num(co2EvFlight, 0)} miles.`);
+  if (co2DriveFlight) {
+    insights.push(`Drive vs flight carbon break-even: ~${num(co2DriveFlight, 0)} miles.`);
   } else {
-    insights.push("EV vs flight carbon: one mode stays cleaner across the full range.");
+    insights.push("Drive vs flight carbon: one mode stays cleaner across the full range.");
   }
 
-  if (genEvFlight) {
-    insights.push(`EV vs flight generalized value break-even: ~${num(genEvFlight, 0)} miles.`);
+  if (genDriveFlight) {
+    insights.push(`Drive vs flight generalized value break-even: ~${num(genDriveFlight, 0)} miles.`);
   } else {
-    insights.push("EV vs flight generalized value: no positive switching point under current time value.");
-  }
-
-  const costSuvFlight = breakEvenDistance(suvModel, flightModel, "cost");
-  if (costSuvFlight) {
-    insights.push(`SUV vs flight cost break-even: ~${num(costSuvFlight, 0)} miles.`);
-  } else {
-    insights.push("SUV vs flight cost: no positive break-even in current assumptions.");
-  }
-
-  const co2SuvFlight = breakEvenDistance(suvModel, flightModel, "co2");
-  if (co2SuvFlight) {
-    insights.push(`SUV vs flight carbon break-even: ~${num(co2SuvFlight, 0)} miles.`);
-  } else {
-    insights.push("SUV vs flight carbon: no positive break-even in current assumptions.");
-  }
-
-  const costHybridFlight = breakEvenDistance(hybridModel, flightModel, "cost");
-  if (costHybridFlight) {
-    insights.push(`Hybrid vs flight cost break-even: ~${num(costHybridFlight, 0)} miles.`);
-  } else {
-    insights.push("Hybrid vs flight cost: no positive break-even in current assumptions.");
-  }
-
-  const co2HybridFlight = breakEvenDistance(hybridModel, flightModel, "co2");
-  if (co2HybridFlight) {
-    insights.push(`Hybrid vs flight carbon break-even: ~${num(co2HybridFlight, 0)} miles.`);
-  } else {
-    insights.push("Hybrid vs flight carbon: no positive break-even in current assumptions.");
+    insights.push("Drive vs flight generalized value: no positive switching point under current time value.");
   }
 
   const lowestGeneralized = results.reduce((best, r) => (r.generalizedCost < best.generalizedCost ? r : best), results[0]);
   insights.push(`At ${num(results[0].distance, 0)} miles, best combined money+time mode is ${lowestGeneralized.name}.`);
-  insights.push(
-    `EV charging estimate: about ${num(ev.chargeStops, 0)} stop(s), adding ~${num(ev.chargeHours)} hours (effective charge power ${num(ev.effectiveChargePower, 0)} kW).`
-  );
 
   return insights;
 }
@@ -356,12 +294,66 @@ function render() {
   effectiveVotEl.textContent = `${money(valueOfTime)}/hour`;
 
   const seat = seatProfiles[value("seatType")];
-  const baseFare = value("flightBaseFare") * seat.costMultiplier;
-  const perMileFare = value("flightFarePerMile") * seat.costMultiplier;
-  const effectivePerMile = (baseFare + perMileFare * distance) / distance;
+  const airfare = Number(value("airfareTotal") || 0) * seat.costMultiplier;
+  const effectivePerMile = distance > 0 ? airfare / distance : 0;
   effectiveFlightFareEl.textContent = `${money(effectivePerMile)}/mi`;
 
   updateOutputLabels();
+}
+
+async function fetchTripEstimate() {
+  if (!state.fromCity || !state.toCity) {
+    if (tripEstimateEl) tripEstimateEl.textContent = 'Please enter both origin and destination.';
+    return;
+  }
+
+  const payload = {
+    from: value('fromCity'),
+    to: value('toCity'),
+    departDate: value('departDate'),
+    returnDate: value('returnDate'),
+    mode: state.travelMode ? state.travelMode.value : 'flight',
+    passengers: Number(state.passengers ? state.passengers.value : 1),
+    seatType: state.seatType ? state.seatType.value : 'economy',
+    gasPrice: value('gasPrice'),
+  };
+
+  if (tripEstimateEl) tripEstimateEl.textContent = 'Fetching estimate...';
+
+  try {
+    const resp = await fetch('/api/estimate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      if (tripEstimateEl) tripEstimateEl.textContent = `Estimate failed: ${resp.status} ${txt}`;
+      return;
+    }
+
+    const data = await resp.json();
+    displayEstimate(data);
+  } catch (err) {
+    if (tripEstimateEl) tripEstimateEl.textContent = `Estimate error: ${err.message}`;
+  }
+}
+
+function displayEstimate(data) {
+  if (!tripEstimateEl) return;
+  if (!data || !data.estimates) {
+    tripEstimateEl.textContent = 'No estimate available.';
+    return;
+  }
+
+  const parts = [];
+  parts.push(`<strong>Estimated distance:</strong> ${num(data.distanceMiles, 1)} mi`);
+  data.estimates.forEach((e) => {
+    parts.push(`<div class="estimate-row"><strong>${e.mode.toUpperCase()}</strong>: ${money(e.price)} ${e.currency ?? ''} <span class="muted">(${e.provider ?? 'mock'})</span></div>`);
+  });
+
+  tripEstimateEl.innerHTML = parts.join('');
 }
 
 function updateOutputLabels() {
@@ -378,24 +370,11 @@ function updateOutputLabels() {
       publicElectricityPrice: `$${num(v)}/kWh`,
       publicChargeShare: `${num(v, 0)}%`,
       gridIntensity: `${num(v)} kg/kWh`,
-      evOccupancy: `${num(v, 0)} travelers`,
-      suvOccupancy: `${num(v, 0)} travelers`,
-      hybridOccupancy: `${num(v, 0)} travelers`,
-      evEfficiency: `${num(v)} kWh/mi`,
-      evRange: `${num(v, 0)} mi`,
-      evChargeSpeed: `${num(v, 0)} kW`,
-      evChargePowerFactor: `${num(v, 0)}%`,
-      evChargeStopOverhead: `${num(v, 0)} min`,
-      suvMpg: `${num(v, 0)} mpg`,
-      hybridMpg: `${num(v, 0)} mpg`,
+      airfareTotal: `$${num(v, 0)}`,
       driveSpeed: `${num(v, 0)} mph`,
       driveFixedCost: `$${num(v, 0)}/trip`,
       driveDeadheadHours: `${num(v)} h`,
-      flightBaseFare: `$${num(v, 0)}`,
-      flightFarePerMile: `$${num(v)}/mi`,
-      flightFixedCost: `$${num(v, 0)}`,
       flightFixedTime: `${num(v)} h`,
-      flightSpeed: `${num(v, 0)} mph`,
       flightCo2PerMile: `${num(v)} kg/mi`,
     };
 
@@ -404,8 +383,10 @@ function updateOutputLabels() {
 }
 
 ids.forEach((id) => {
-  state[id].addEventListener("input", render);
-  state[id].addEventListener("change", render);
+  const el = state[id];
+  if (!el) return;
+  el.addEventListener("input", render);
+  el.addEventListener("change", render);
 });
 
 document.getElementById("resetBtn").addEventListener("click", () => {
@@ -419,32 +400,24 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     publicChargeShare: "40",
     gridIntensity: "0.38",
     seatType: "economy",
-    evOccupancy: "1",
-    suvOccupancy: "2",
-    hybridOccupancy: "1",
-    evEfficiency: "0.31",
-    evRange: "260",
-    evChargeSpeed: "150",
-    evChargePowerFactor: "72",
-    evChargeStopOverhead: "7",
-    suvMpg: "22",
-    hybridMpg: "44",
+    vehicleType: "midsize",
+    passengers: "1",
     driveSpeed: "58",
     driveFixedCost: "25",
     driveDeadheadHours: "0.4",
-    flightBaseFare: "85",
-    flightFarePerMile: "0.12",
-    flightFixedCost: "35",
+    airfareTotal: "200",
     flightFixedTime: "2.4",
-    flightSpeed: "500",
     flightCo2PerMile: "0.22",
   };
 
   Object.entries(defaults).forEach(([id, val]) => {
-    state[id].value = val;
+    if (state[id]) state[id].value = val;
   });
 
   render();
 });
+
+const estimateBtn = document.getElementById('getEstimateBtn');
+if (estimateBtn) estimateBtn.addEventListener('click', fetchTripEstimate);
 
 render();

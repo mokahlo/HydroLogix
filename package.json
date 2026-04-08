@@ -1,0 +1,13 @@
+{
+  "name": "drive-fly",
+  "version": "0.1.0",
+  "description": "Travel mode dashboard with live trip estimate proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  }
+}
