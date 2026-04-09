@@ -196,6 +196,50 @@ h3 {
   gap: 0.65rem 0.85rem;
 }
 
+.advanced-controls {
+  margin-top: 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 0.65rem 0.75rem;
+}
+
+.advanced-controls summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent-3);
+  user-select: none;
+  list-style: none;
+}
+
+.advanced-controls summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-controls summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.45rem;
+  transform-origin: center;
+  transition: transform 0.18s ease;
+}
+
+.advanced-controls[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced-intro {
+  margin: 0.55rem 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.advanced-controls h3 {
+  margin-top: 0.95rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.98rem;
+}
+
 label {
   border: 1px solid var(--line);
   border-radius: 10px;

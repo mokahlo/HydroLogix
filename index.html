@@ -49,29 +49,6 @@
           <datalist id="airportsList"></datalist>
 
           <label>
-            Departure date
-            <input id="departDate" type="date" />
-            <span class="hint">Date of outbound travel (affects date-sensitive fares).</span>
-          </label>
-
-          <label>
-            Return date (optional)
-            <input id="returnDate" type="date" />
-            <span class="hint">Optional return date for round-trip fare estimates.</span>
-          </label>
-
-          <label>
-            Travel mode
-            <select id="travelMode">
-              <option value="flight">Flight</option>
-              <option value="drive">Drive</option>
-              <option value="train">Train</option>
-              <option value="bus">Bus</option>
-            </select>
-            <span class="hint">Choose the travel mode to prioritize for estimates.</span>
-          </label>
-
-          <label>
             Passengers
             <input id="passengers" type="number" min="1" max="10" value="1" />
             <span class="hint">Number of travelers sharing the estimate.</span>
@@ -90,67 +67,15 @@
           </label>
 
           <label>
-            Passenger average wage ($/hour)
-            <input id="passengerWage" type="range" min="10" max="220" step="1" value="35" />
-            <span data-output="passengerWage"></span>
-            <span class="hint">Average hourly wage used to value travel time.</span>
-          </label>
-
-          <label>
-            Wage-to-time value factor (%)
-            <input id="wageTimeFactor" type="range" min="25" max="200" step="5" value="100" />
-            <span data-output="wageTimeFactor"></span>
-            <span class="hint">100% = leisure time valued at full wage. Lower % for unpaid travel.</span>
-          </label>
-
-          <label>
-            Fuel price ($/gal)
-            <input id="gasPrice" type="range" min="2" max="8" step="0.05" value="3.9" />
-            <span data-output="gasPrice"></span>
-            <span class="hint">Local gasoline price per gallon.</span>
-          </label>
-
-          <label>
-            Private electricity price ($/kWh)
-            <input id="electricityPrice" type="range" min="0.08" max="0.4" step="0.01" value="0.14" />
-            <span data-output="electricityPrice"></span>
-            <span class="hint">Private (home) electricity price per kWh.</span>
-          </label>
-
-          <label>
-            Public charging price ($/kWh)
-            <input id="publicElectricityPrice" type="range" min="0.1" max="0.9" step="0.01" value="0.48" />
-            <span data-output="publicElectricityPrice"></span>
-            <span class="hint">Public charger price per kWh (fast/public stations).</span>
-          </label>
-
-          <label>
-            Public charging share (%)
-            <input id="publicChargeShare" type="range" min="0" max="100" step="5" value="40" />
-            <span data-output="publicChargeShare"></span>
-            <span class="hint">Share of EV charging energy purchased at public rates during the trip.</span>
-          </label>
-
-          <label>
-            Grid intensity (kg CO2/kWh)
-            <input id="gridIntensity" type="range" min="0.05" max="0.9" step="0.01" value="0.38" />
-            <span data-output="gridIntensity"></span>
-            <span class="hint">US average ~0.38. Cleaner regions (CA/OR) ≈0.15–0.20. Dirtier (WV/WY) ≈0.70.</span>
-          </label>
-
-          <label>
             Flight seat type
             <select id="seatType">
               <option value="economy">Economy</option>
               <option value="premium">Premium Economy</option>
               <option value="business">Business</option>
             </select>
-            <span class="hint">Seat class changes fare and climate footprint.</span>
+            <span class="hint">High-impact choice: seat class changes fare and climate footprint.</span>
           </label>
-        </div>
 
-        <h3>Drive Assumptions</h3>
-        <div class="control-grid">
           <label>
             Vehicle type
             <select id="vehicleType">
@@ -160,53 +85,140 @@
               <option value="hybrid">Hybrid — 45 mpg</option>
               <option value="ev">EV — 0.31 kWh/mi</option>
             </select>
-            <span class="hint">Choose representative vehicle; average efficiency used for drive estimates.</span>
+            <span class="hint">High-impact choice: efficiency drives both cost and CO2.</span>
           </label>
 
-          <label>
-            Driving speed (mph)
-            <input id="driveSpeed" type="range" min="35" max="80" step="1" value="58" />
-            <span data-output="driveSpeed"></span>
-            <span class="hint">Average on-route driving speed (includes typical stops). If unknown, a default of 58 mph is used.</span>
-          </label>
-
-          <label>
-            Tolls and parking ($/trip)
-            <input id="driveFixedCost" type="range" min="0" max="150" step="1" value="25" />
-            <span data-output="driveFixedCost"></span>
-            <span class="hint">One-time trip costs like tolls, parking, or fees.</span>
-          </label>
-
-          <label>
-            Drive deadhead time (hours)
-            <input id="driveDeadheadHours" type="range" min="0" max="3" step="0.1" value="0.4" />
-            <span data-output="driveDeadheadHours"></span>
-            <span class="hint">Extra time to reach car/parking: loading, starting, picking up passengers, etc.</span>
-          </label>
-        </div>
-
-        <h3>Flight Assumptions</h3>
-        <div class="control-grid">
           <label>
             Airfare total ($)
             <input id="airfareTotal" type="number" min="0" step="1" value="200" />
             <span data-output="airfareTotal"></span>
-            <span class="hint">Total per-passenger fare (taxes & fees included). Seat class will scale this value.</span>
+            <span class="hint">High-impact assumption for flight economics.</span>
           </label>
 
           <label>
-            Airport process time (hours)
-            <input id="flightFixedTime" type="range" min="0.5" max="5" step="0.1" value="2.4" />
-            <span data-output="flightFixedTime"></span>
-            <span class="hint">Total: drive/transit to airport, check-in, security, boarding, plus arrival/baggage at destination.</span>
+            Fuel price ($/gal)
+            <input id="gasPrice" type="range" min="2" max="8" step="0.05" value="3.9" />
+            <span data-output="gasPrice"></span>
+            <span class="hint">High-impact assumption for gas vehicle costs.</span>
           </label>
+        </div>
 
-          <label>
-            Flight CO2 intensity (kg CO2 / passenger-mile)
-            <input id="flightCo2PerMile" type="range" min="0.08" max="0.5" step="0.01" value="0.22" />
-            <span data-output="flightCo2PerMile"></span>
-            <span class="hint">Includes fuel burn. Newer aircraft ≈0.15. Includes radiative forcing multiplier.</span>
-          </label>
+        <details class="advanced-controls">
+          <summary>Advanced assumptions (optional)</summary>
+          <p class="advanced-intro">Fine-tune model behavior and edge-case assumptions. Most users can ignore this section.</p>
+
+          <h3>Trip Context</h3>
+          <div class="control-grid">
+            <label>
+              Departure date
+              <input id="departDate" type="date" />
+              <span class="hint">Optional travel context for planning notes.</span>
+            </label>
+
+            <label>
+              Return date (optional)
+              <input id="returnDate" type="date" />
+              <span class="hint">Optional round-trip planning context.</span>
+            </label>
+
+            <label>
+              Travel mode focus
+              <select id="travelMode">
+                <option value="flight">Flight</option>
+                <option value="drive">Drive</option>
+                <option value="train">Train</option>
+                <option value="bus">Bus</option>
+              </select>
+              <span class="hint">UI planning selector; comparison cards still show all modeled modes.</span>
+            </label>
+
+            <label>
+              Passenger average wage ($/hour)
+              <input id="passengerWage" type="range" min="10" max="220" step="1" value="35" />
+              <span data-output="passengerWage"></span>
+              <span class="hint">Used to convert travel time to generalized cost.</span>
+            </label>
+
+            <label>
+              Wage-to-time value factor (%)
+              <input id="wageTimeFactor" type="range" min="25" max="200" step="5" value="100" />
+              <span data-output="wageTimeFactor"></span>
+              <span class="hint">100% = leisure time valued at full wage.</span>
+            </label>
+          </div>
+
+          <h3>Energy & Emissions Assumptions</h3>
+          <div class="control-grid">
+            <label>
+              Private electricity price ($/kWh)
+              <input id="electricityPrice" type="range" min="0.08" max="0.4" step="0.01" value="0.14" />
+              <span data-output="electricityPrice"></span>
+              <span class="hint">Home charging rate for EV scenarios.</span>
+            </label>
+
+            <label>
+              Public charging price ($/kWh)
+              <input id="publicElectricityPrice" type="range" min="0.1" max="0.9" step="0.01" value="0.48" />
+              <span data-output="publicElectricityPrice"></span>
+              <span class="hint">Fast/public station charging rate.</span>
+            </label>
+
+            <label>
+              Public charging share (%)
+              <input id="publicChargeShare" type="range" min="0" max="100" step="5" value="40" />
+              <span data-output="publicChargeShare"></span>
+              <span class="hint">Percent of EV energy purchased at public rates.</span>
+            </label>
+
+            <label>
+              Grid intensity (kg CO2/kWh)
+              <input id="gridIntensity" type="range" min="0.05" max="0.9" step="0.01" value="0.38" />
+              <span data-output="gridIntensity"></span>
+              <span class="hint">Regional electricity emissions factor.</span>
+            </label>
+          </div>
+
+          <h3>Drive Assumptions</h3>
+          <div class="control-grid">
+            <label>
+              Driving speed (mph)
+              <input id="driveSpeed" type="range" min="35" max="80" step="1" value="58" />
+              <span data-output="driveSpeed"></span>
+              <span class="hint">Average speed including typical stops.</span>
+            </label>
+
+            <label>
+              Tolls and parking ($/trip)
+              <input id="driveFixedCost" type="range" min="0" max="150" step="1" value="25" />
+              <span data-output="driveFixedCost"></span>
+              <span class="hint">One-time drive trip costs.</span>
+            </label>
+
+            <label>
+              Drive deadhead time (hours)
+              <input id="driveDeadheadHours" type="range" min="0" max="3" step="0.1" value="0.4" />
+              <span data-output="driveDeadheadHours"></span>
+              <span class="hint">Extra loading/parking/pickup time.</span>
+            </label>
+          </div>
+
+          <h3>Flight Assumptions</h3>
+          <div class="control-grid">
+            <label>
+              Airport process time (hours)
+              <input id="flightFixedTime" type="range" min="0.5" max="5" step="0.1" value="2.4" />
+              <span data-output="flightFixedTime"></span>
+              <span class="hint">Security, check-in, boarding, and arrival overhead.</span>
+            </label>
+
+            <label>
+              Flight CO2 intensity (kg CO2 / passenger-mile)
+              <input id="flightCo2PerMile" type="range" min="0.08" max="0.5" step="0.01" value="0.22" />
+              <span data-output="flightCo2PerMile"></span>
+              <span class="hint">Aircraft emissions factor for flight scenarios.</span>
+            </label>
+          </div>
+        </details>
         </div>
       </section>
 
