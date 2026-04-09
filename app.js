@@ -57,6 +57,8 @@ const comparisonIdeas = [
 // Airport lists: small subset for fast datalist load, and full list for fuzzy search (loaded lazily)
 let airportsSmall = [];
 let airportsFull = null;
+let airportsSmallLoaded = false;
+let airportsSmallLoadingPromise = null;
 let airportsFullLoaded = false;
 let airportsLoadingPromise = null;
 const SUGGESTION_MAX = 8;
@@ -380,8 +382,16 @@ async function fetchTripEstimate() {
   if (tripEstimateEl) tripEstimateEl.textContent = 'Estimating distance...';
 
   try {
+    await loadAirports();
     await ensureAirportsFull();
+    normalizeAirportInputValue(state.fromCity);
+    normalizeAirportInputValue(state.toCity);
     const sourceList = getAirportSearchList();
+
+    if (!sourceList.length) {
+      if (tripEstimateEl) tripEstimateEl.textContent = 'Airport lookup data is still loading. Please try again in a moment.';
+      return;
+    }
 
     const fromMatch = resolveAirport(value('fromCity'), sourceList);
     const toMatch = resolveAirport(value('toCity'), sourceList);
@@ -505,23 +515,38 @@ const estimateBtn = document.getElementById('getEstimateBtn');
 if (estimateBtn) estimateBtn.addEventListener('click', fetchTripEstimate);
 
 async function loadAirports() {
+  if (airportsSmallLoaded) return airportsSmall;
+  if (airportsSmallLoadingPromise) return airportsSmallLoadingPromise;
+
   const airportsListEl = document.getElementById("airportsList");
-  if (!airportsListEl) return;
-  try {
-    const res = await fetch("airports-small.json");
-    if (!res.ok) return;
-    const airports = await res.json();
-    airportsSmall = airports;
-    airports.forEach((a) => {
-      const option = document.createElement("option");
-      // Show name (code) as the visible value when selected
-      option.value = `${a.name} (${a.code})`;
-      option.textContent = `${a.name} (${a.code})`;
-      airportsListEl.appendChild(option);
+  if (!airportsListEl) return [];
+
+  airportsSmallLoadingPromise = fetch("airports-small.json")
+    .then((res) => {
+      if (!res.ok) return [];
+      return res.json();
+    })
+    .then((airports) => {
+      airportsSmall = Array.isArray(airports) ? airports : [];
+      airportsListEl.innerHTML = "";
+      airportsSmall.forEach((a) => {
+        const option = document.createElement("option");
+        option.value = `${a.name} (${a.code})`;
+        option.textContent = `${a.name} (${a.code})`;
+        airportsListEl.appendChild(option);
+      });
+      airportsSmallLoaded = true;
+      airportsSmallLoadingPromise = null;
+      return airportsSmall;
+    })
+    .catch((e) => {
+      console.warn("Failed to load airports list", e);
+      airportsSmall = [];
+      airportsSmallLoadingPromise = null;
+      return airportsSmall;
     });
-  } catch (e) {
-    console.warn("Failed to load airports list", e);
-  }
+
+  return airportsSmallLoadingPromise;
 }
 
 loadAirports();
