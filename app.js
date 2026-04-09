@@ -6,6 +6,9 @@ const seatProfiles = {
 
 const DEFAULT_FLIGHT_SPEED = 500; // mph, used when no user input is provided
 const DEFAULT_DRIVE_SPEED = 58; // mph, typical average used when unknown
+const DEFAULT_FAST_CHARGE_POWER = 90; // kW, practical road-trip charging power
+const DEFAULT_CHARGE_SESSION_OVERHEAD = 0.17; // hours, plug-in / queue / payment / detour friction
+const EV_ROADTRIP_RANGE = 250; // miles between meaningful public fast-charge stops
 const AVG_SPEEDS = { train: 80, bus: 50, ferry: 30 };
 const CO2_PER_MILE = { train: 0.05, bus: 0.12, ferry: 0.04 };
 
@@ -155,11 +158,18 @@ function buildModeModels() {
 
   let driveCostPerMile = 0;
   let driveCo2PerMile = 0;
+  let driveChargeHours = 0;
   const hoursPerMileDrive = 1 / driveSpeed;
 
   if (profile.kind === "ev") {
     driveCostPerMile = (profile.kwhPerMile * electricPrice) / passengers;
     driveCo2PerMile = (profile.kwhPerMile * gridIntensity) / passengers;
+
+    const distance = Number(value("distanceMiles") || 0);
+    const publicMiles = distance * publicChargeShare;
+    const publicChargingEnergy = publicMiles * profile.kwhPerMile;
+    const chargingSessions = publicMiles > 0 ? Math.max(1, Math.ceil(publicMiles / EV_ROADTRIP_RANGE)) : 0;
+    driveChargeHours = publicChargingEnergy / DEFAULT_FAST_CHARGE_POWER + chargingSessions * DEFAULT_CHARGE_SESSION_OVERHEAD;
   } else {
     driveCostPerMile = (gasPrice / profile.mpg) / passengers;
     driveCo2PerMile = (8.887 / profile.mpg) / passengers;
@@ -176,10 +186,11 @@ function buildModeModels() {
       tags: ["Drive", profile.kind === "ev" ? "Electric" : "Gas"],
       fixedCost: driveFixedCost / passengers,
       costPerMile: driveCostPerMile,
-      fixedTime: driveDeadhead,
+      fixedTime: driveDeadhead + driveChargeHours,
       hoursPerMile: hoursPerMileDrive,
       fixedCo2: 0,
       co2PerMile: driveCo2PerMile,
+      chargeHours: driveChargeHours,
     },
     {
       id: "flight",
@@ -191,6 +202,7 @@ function buildModeModels() {
       hoursPerMile: 1 / DEFAULT_FLIGHT_SPEED,
       fixedCo2: 0,
       co2PerMile: flightCo2PerMile * seat.co2Multiplier,
+      chargeHours: 0,
     },
   ];
 }
@@ -226,10 +238,10 @@ function buildCard(result, flags, index) {
   card.innerHTML = `
     <h4>${result.name}</h4>
     <div>${pills.join(" ")}</div>
-    <p class="metric">Monetary cost: <strong>${money(result.monetaryCost)}</strong></p>
+    <p class="metric">Total out-of-pocket cost: <strong>${money(result.monetaryCost)}</strong></p>
     <p class="metric">Carbon: <strong>${num(result.co2)} kg</strong></p>
-    <p class="metric">Door-to-door time: <strong>${num(result.hours)} h</strong></p>
-    <p class="metric">Generalized cost ($ + time): <strong>${money(result.generalizedCost)}</strong></p>
+    <p class="metric">Door-to-door time: <strong>${num(result.hours)} h</strong>${result.chargeHours ? ` <span class="muted">(includes ${num(result.chargeHours)} h charging burden)</span>` : ""}</p>
+    <p class="metric">Generalized cost: <strong>${money(result.generalizedCost)}</strong></p>
   `;
   return card;
 }
