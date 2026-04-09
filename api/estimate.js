@@ -18,53 +18,45 @@ module.exports = async (req, res) => {
       return R * c;
     }
 
+    // Load static airports DB once and perform tolerant lookup (IATA code or city name)
+    const airports = require('../airports.json');
+
     function getAirportCoords(query) {
       if (!query) return null;
-      const q = query.trim().toLowerCase();
-      // Try to load airports statically. In Vercel we can require it
-      const airports = require('../airports.json');
-      const found = airports.find(a => a.code.toLowerCase() === q || a.name.toLowerCase() === q);
-      return found ? { lat: found.lat, lon: found.lon } : null;
+      const qRaw = String(query).trim();
+      if (!qRaw) return null;
+      const q = qRaw.toLowerCase();
+
+      // 1) Try to detect a 3-letter IATA code anywhere in the input
+      const codeMatch = qRaw.toUpperCase().match(/\b([A-Z]{3})\b/);
+      if (codeMatch) {
+        const code = codeMatch[1].toLowerCase();
+        const found = airports.find((a) => a.code.toLowerCase() === code);
+        if (found) return { lat: found.lat, lon: found.lon, code: found.code, name: found.name };
+      }
+
+      // 2) Exact match against code or name
+      const exact = airports.find((a) => a.code.toLowerCase() === q || a.name.toLowerCase() === q);
+      if (exact) return { lat: exact.lat, lon: exact.lon, code: exact.code, name: exact.name };
+
+      // 3) Fuzzy substring match against name or code
+      const fuzzy = airports.find((a) => a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
+      if (fuzzy) return { lat: fuzzy.lat, lon: fuzzy.lon, code: fuzzy.code, name: fuzzy.name };
+
+      return null;
     }
 
     const fromCoord = getAirportCoords(from);
     const toCoord = getAirportCoords(to);
 
-    let distanceMiles = 600; // fallback
+    let distanceMiles = 600; // fallback if lookup fails
     if (fromCoord && toCoord) {
       distanceMiles = haversine(fromCoord.lat, fromCoord.lon, toCoord.lat, toCoord.lon);
       distanceMiles = Math.round(distanceMiles * 10) / 10;
     }
 
-    const seatMultipliers = { economy: 1, premium: 1.45, business: 2.45 };
-    const seatMultiplier = seatMultipliers[seatType] || 1;
-
-    let base = 40;
-    let perMile = 0.12 * seatMultiplier;
-    let flightPrice = base + perMile * distanceMiles;
-
-    if (departDate) {
-      const daysOut = Math.max(0, Math.floor((new Date(departDate) - new Date()) / (1000 * 60 * 60 * 24)));
-      if (daysOut < 7) flightPrice *= 1.5;
-      else if (daysOut < 14) flightPrice *= 1.25;
-      else if (daysOut < 30) flightPrice *= 1.1;
-      else if (daysOut > 180) flightPrice *= 0.95;
-    }
-
-    flightPrice = Math.round(flightPrice * 100) / 100;
-
-    const mpg = 25; // default for driving
-    const gas = parseFloat(gasPrice) || 3.9;
-    const driveCost = Math.round((distanceMiles * (gas / mpg) * passengers + 0.5) * 100) / 100;
-    const driveTimeHours = Math.round((distanceMiles / 58) * 100) / 100;
-
-    const estimates = [];
-    if (mode === 'flight' || mode === 'auto') {
-      estimates.push({ mode: 'flight', price: flightPrice, currency: 'USD', provider: process.env.TRIP_API_PROVIDER || 'mock', details: { distanceMiles } });
-    }
-    estimates.push({ mode: 'drive', price: driveCost, currency: 'USD', details: { distanceMiles, timeHours: driveTimeHours } });
-
-    res.status(200).json({ distanceMiles, estimates });
+    // API intentionally lightweight: return only the computed distance.
+    res.status(200).json({ distanceMiles });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'internal error' });

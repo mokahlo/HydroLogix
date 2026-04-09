@@ -413,9 +413,6 @@ async function fetchTripEstimate() {
 
     if (!resp.ok) {
       const txt = await resp.text();
-
-      // 405 usually means the origin doesn't allow POST (common when the
-      // static site is hosted without the API). Give the user actionable steps.
       if (resp.status === 405) {
         if (tripEstimateEl)
           tripEstimateEl.innerHTML =
@@ -430,8 +427,14 @@ async function fetchTripEstimate() {
     }
 
     const data = await resp.json();
-    // Save last live estimates and re-render the main comparison to include them
+    // Save last live response (distance-only) and apply returned distance to UI
     lastLiveEstimates = data;
+    if (data && typeof data.distanceMiles === 'number' && state.distanceMiles) {
+      // update slider to match returned distance
+      state.distanceMiles.value = Math.round(data.distanceMiles);
+      updateOutputLabels();
+    }
+
     displayEstimate(data);
     render();
   } catch (err) {
@@ -441,16 +444,20 @@ async function fetchTripEstimate() {
 
 function displayEstimate(data) {
   if (!tripEstimateEl) return;
-  if (!data || !data.estimates) {
+  const parts = [];
+  if (data && typeof data.distanceMiles === 'number') {
+    parts.push(`<strong>Estimated distance:</strong> ${num(data.distanceMiles, 1)} mi`);
+  }
+  if (data && Array.isArray(data.estimates)) {
+    data.estimates.forEach((e) => {
+      parts.push(`<div class="estimate-row"><strong>${e.mode.toUpperCase()}</strong>: ${money(e.price)} ${e.currency ?? ''} <span class="muted">(${e.provider ?? 'mock'})</span></div>`);
+    });
+  }
+
+  if (parts.length === 0) {
     tripEstimateEl.textContent = 'No estimate available.';
     return;
   }
-
-  const parts = [];
-  parts.push(`<strong>Estimated distance:</strong> ${num(data.distanceMiles, 1)} mi`);
-  data.estimates.forEach((e) => {
-    parts.push(`<div class="estimate-row"><strong>${e.mode.toUpperCase()}</strong>: ${money(e.price)} ${e.currency ?? ''} <span class="muted">(${e.provider ?? 'mock'})</span></div>`);
-  });
 
   tripEstimateEl.innerHTML = parts.join('');
 }
