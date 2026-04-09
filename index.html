@@ -16,7 +16,7 @@
     <div class="bg-orb bg-orb-a"></div>
     <div class="bg-orb bg-orb-b"></div>
     <header class="hero">
-      <p class="eyebrow">Mode Shift Explorer</p>
+      <p class="eyebrow">Mode Shift Explorer <span id="appVersion" class="version-badge" title="Semantic versioning: major.minor.patch">v0.3.1</span></p>
       <h1>Travel Mode Cost and Environment Dashboard</h1>
       <p class="subhead">
         Compare driving and flying across cost, carbon footprint, total time, and value-of-time. Tune seat class,
@@ -55,6 +55,26 @@
           </label>
 
           <label>
+            Month of trip
+            <select id="tripMonth">
+              <option value="avg">Average (year-round)</option>
+              <option value="jan">January</option>
+              <option value="feb">February</option>
+              <option value="mar">March</option>
+              <option value="apr">April</option>
+              <option value="may">May</option>
+              <option value="jun">June</option>
+              <option value="jul">July</option>
+              <option value="aug">August</option>
+              <option value="sep">September</option>
+              <option value="oct">October</option>
+              <option value="nov">November</option>
+              <option value="dec">December</option>
+            </select>
+            <span class="hint">Applies seasonal average adjustments to travel prices and travel times.</span>
+          </label>
+
+          <label>
             Trip distance (miles)
             <input id="distanceMiles" type="range" min="50" max="2500" step="10" value="600" />
             <span data-output="distanceMiles"></span>
@@ -77,29 +97,29 @@
           </label>
 
           <label>
-            Vehicle type
+            Gas vehicle type
             <select id="vehicleType">
               <option value="midsize">Midsize car — 28 mpg</option>
               <option value="small">Small car — 35 mpg</option>
               <option value="suv">SUV — 22 mpg</option>
               <option value="hybrid">Hybrid — 45 mpg</option>
-              <option value="ev">EV — 0.31 kWh/mi</option>
             </select>
-            <span class="hint">High-impact choice: efficiency drives both cost and CO2.</span>
+            <span class="hint">Pick the gas-car comparison; EV is always shown as a constant benchmark.</span>
           </label>
 
           <label>
             Airfare total ($)
             <input id="airfareTotal" type="number" min="0" step="1" value="200" />
             <span data-output="airfareTotal"></span>
-            <span class="hint">High-impact assumption for flight economics.</span>
+            <button id="estimateAirfareBtn" type="button" class="estimate-btn">Estimate Airfare by Distance</button>
+            <span class="hint">Enter total airfare for the whole party; dashboard results are normalized per person.</span>
           </label>
 
           <label>
-            Fuel price ($/gal)
-            <input id="gasPrice" type="range" min="2" max="8" step="0.05" value="3.9" />
+            Average Gas Price ($/gal)
+            <input id="gasPrice" type="number" min="0" step="0.01" value="3.90" />
             <span data-output="gasPrice"></span>
-            <span class="hint">High-impact assumption for gas vehicle costs.</span>
+            <span class="hint">Type a regional average gas price for a steadier comparison input. As of Apr 9, 2026 benchmark state averages: AZ ~$3.89/gal, CA ~$4.97/gal.</span>
           </label>
         </div>
 
@@ -222,10 +242,10 @@
       </section>
 
       <section class="panel outputs" aria-label="results">
-        <h2>Results at Current Distance</h2>
+        <h2>Results at Current Distance (Per Person)</h2>
         <div class="results-meta">
           <p class="effective-vot">Value of time: <strong id="effectiveVot"></strong></p>
-          <p class="effective-vot">Flight effective fare/mi: <strong id="effectiveFlightFare"></strong></p>
+          <p class="effective-vot">Flight effective fare/mi (per person): <strong id="effectiveFlightFare"></strong></p>
         </div>
 
         <div id="tripEstimate" class="trip-estimate" aria-live="polite"></div>
@@ -245,6 +265,7 @@
             If a break-even (for example ~300 miles) is shown, one mode tends to be preferable
             below that distance and the other becomes preferable beyond it. "No positive
             break-even" means one mode dominates across plausible trip distances.
+            <br/>All cost and carbon values are shown per person.
             <br/>Generalized cost = monetary cost + (value-of-time × travel hours).
           </p>
           <ul id="insightList"></ul>

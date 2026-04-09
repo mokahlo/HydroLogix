@@ -4,6 +4,26 @@ const seatProfiles = {
   business: { costMultiplier: 2.45, co2Multiplier: 1.9, label: "Business" },
 };
 
+// Semantic versioning: major.minor.patch
+// major = breaking changes, minor = new features, patch = fixes.
+const APP_VERSION = "0.3.1";
+
+const MONTH_ADJUSTMENTS = {
+  avg: { label: "Average", driveCost: 1.0, driveTime: 1.0, flightFare: 1.0, flightTime: 1.0 },
+  jan: { label: "January", driveCost: 1.02, driveTime: 1.06, flightFare: 0.93, flightTime: 1.06 },
+  feb: { label: "February", driveCost: 1.01, driveTime: 1.04, flightFare: 0.92, flightTime: 1.04 },
+  mar: { label: "March", driveCost: 1.03, driveTime: 1.03, flightFare: 1.05, flightTime: 1.03 },
+  apr: { label: "April", driveCost: 1.0, driveTime: 1.0, flightFare: 0.99, flightTime: 1.0 },
+  may: { label: "May", driveCost: 1.01, driveTime: 1.0, flightFare: 1.03, flightTime: 1.0 },
+  jun: { label: "June", driveCost: 1.03, driveTime: 1.05, flightFare: 1.12, flightTime: 1.05 },
+  jul: { label: "July", driveCost: 1.05, driveTime: 1.09, flightFare: 1.18, flightTime: 1.08 },
+  aug: { label: "August", driveCost: 1.04, driveTime: 1.07, flightFare: 1.14, flightTime: 1.06 },
+  sep: { label: "September", driveCost: 1.0, driveTime: 1.0, flightFare: 0.97, flightTime: 1.0 },
+  oct: { label: "October", driveCost: 1.0, driveTime: 1.0, flightFare: 0.98, flightTime: 1.0 },
+  nov: { label: "November", driveCost: 1.02, driveTime: 1.05, flightFare: 1.1, flightTime: 1.05 },
+  dec: { label: "December", driveCost: 1.06, driveTime: 1.11, flightFare: 1.22, flightTime: 1.11 },
+};
+
 const DEFAULT_FLIGHT_SPEED = 500; // mph, used when no user input is provided
 const DEFAULT_DRIVE_SPEED = 58; // mph, typical average used when unknown
 const DEFAULT_FAST_CHARGE_POWER = 90; // kW, practical road-trip charging power
@@ -15,6 +35,7 @@ const CO2_PER_MILE = { train: 0.05, bus: 0.12, ferry: 0.04 };
 const ids = [
   "fromCity",
   "toCity",
+  "tripMonth",
   "departDate",
   "returnDate",
   "passengers",
@@ -44,6 +65,11 @@ const insightListEl = document.getElementById("insightList");
 const ideaListEl = document.getElementById("ideaList");
 const effectiveVotEl = document.getElementById("effectiveVot");
 const effectiveFlightFareEl = document.getElementById("effectiveFlightFare");
+const appVersionEl = document.getElementById("appVersion");
+
+if (appVersionEl) {
+  appVersionEl.textContent = `v${APP_VERSION}`;
+}
 
 const comparisonIdeas = [
   "Reliability risk: probability and expected delay costs from weather or congestion.",
@@ -91,9 +117,24 @@ function resolveAirport(query, list) {
   if (!qRaw) return null;
   const q = qRaw.toLowerCase();
 
-  const codeMatch = qRaw.toUpperCase().match(/\b([A-Z]{3})\b/);
-  if (codeMatch) {
-    const code = codeMatch[1].toLowerCase();
+  // Prefer explicit code patterns before fuzzy matching names.
+  const upper = qRaw.toUpperCase();
+  const parenCodeMatch = upper.match(/\(([A-Z]{3})\)/);
+  if (parenCodeMatch) {
+    const code = parenCodeMatch[1].toLowerCase();
+    const found = list.find((a) => String(a.code || '').toLowerCase() === code);
+    if (found) return found;
+  }
+
+  if (/^[A-Za-z]{3}$/.test(qRaw)) {
+    const code = qRaw.toLowerCase();
+    const found = list.find((a) => String(a.code || '').toLowerCase() === code);
+    if (found) return found;
+  }
+
+  const tokenMatches = upper.match(/\b([A-Z]{3})\b/g) || [];
+  for (const token of tokenMatches) {
+    const code = token.toLowerCase();
     const found = list.find((a) => String(a.code || '').toLowerCase() === code);
     if (found) return found;
   }
@@ -102,6 +143,60 @@ function resolveAirport(query, list) {
   if (exact) return exact;
 
   return list.find((a) => String(a.code || '').toLowerCase().includes(q) || String(a.name || '').toLowerCase().includes(q)) || null;
+}
+
+function estimateAverageAirfarePerPassenger(distanceMiles) {
+  const d = Math.max(0, Number(distanceMiles) || 0);
+  if (d <= 0) return 0;
+
+  // Simple piecewise curve: higher $/mile for short-haul, lower for longer trips.
+  let remaining = d;
+  let fare = 55;
+
+  const band1 = Math.min(remaining, 300);
+  fare += band1 * 0.32;
+  remaining -= band1;
+
+  const band2 = Math.min(Math.max(remaining, 0), 700);
+  fare += band2 * 0.22;
+  remaining -= band2;
+
+  if (remaining > 0) {
+    fare += remaining * 0.16;
+  }
+
+  return Math.max(89, Math.round(fare / 5) * 5);
+}
+
+function estimateAirfareFromDistance() {
+  const distance = Number(value("distanceMiles") || 0);
+  const passengers = Math.max(1, Number(value("passengers") || 1));
+  if (distance <= 0) {
+    if (tripEstimateEl) {
+      tripEstimateEl.textContent = "Set a valid trip distance before estimating airfare.";
+    }
+    return;
+  }
+
+  const baselinePerPassenger = estimateAverageAirfarePerPassenger(distance);
+  const baselineFare = Math.round(baselinePerPassenger * passengers);
+  if (state.airfareTotal) {
+    state.airfareTotal.value = String(baselineFare);
+  }
+
+  const seat = seatProfiles[value("seatType")] || seatProfiles.economy;
+  const effectiveSeatFare = baselineFare * seat.costMultiplier;
+  const effectiveSeatPerPassenger = effectiveSeatFare / passengers;
+  if (tripEstimateEl) {
+    tripEstimateEl.innerHTML =
+      `<strong>Estimated airfare set:</strong> ${money(baselineFare)} ` +
+      `<span class="muted">(distance-based baseline for ${passengers} passenger${passengers === 1 ? "" : "s"} ` +
+      `at ${num(distance, 0)} mi: ${money(baselinePerPassenger)} per passenger; ` +
+      `${seat.label} effective total: ${money(effectiveSeatFare)} ` +
+      `(${money(effectiveSeatPerPassenger)} per passenger))</span>`;
+  }
+
+  render();
 }
 
 function normalizeAirportInputValue(inputEl) {
@@ -139,7 +234,9 @@ function buildModeModels() {
   const publicChargeShare = value("publicChargeShare") / 100;
   const electricPrice = privateElectricPrice * (1 - publicChargeShare) + publicElectricPrice * publicChargeShare;
   const gridIntensity = value("gridIntensity");
-  const vehicleType = value("vehicleType") || "midsize";
+  const selectedGasType = value("vehicleType") || "midsize";
+  const monthKey = value("tripMonth") || "avg";
+  const monthAdjustment = MONTH_ADJUSTMENTS[monthKey] || MONTH_ADJUSTMENTS.avg;
   let driveSpeed = Number(value("driveSpeed"));
   if (!driveSpeed || Number.isNaN(driveSpeed) || driveSpeed <= 0) {
     driveSpeed = DEFAULT_DRIVE_SPEED;
@@ -147,6 +244,7 @@ function buildModeModels() {
   const driveFixedCost = value("driveFixedCost");
   const driveDeadhead = value("driveDeadheadHours");
   const passengers = Math.max(1, Number(value("passengers") || 1));
+  const distance = Number(value("distanceMiles") || 0);
 
   const vehicleProfiles = {
     small: { kind: "gas", mpg: 35, label: "Small car" },
@@ -156,25 +254,41 @@ function buildModeModels() {
     ev: { kind: "ev", kwhPerMile: 0.31, label: "EV" },
   };
 
-  const profile = vehicleProfiles[vehicleType] || vehicleProfiles.midsize;
-
-  let driveCostPerMile = 0;
-  let driveCo2PerMile = 0;
-  let driveChargeHours = 0;
   const hoursPerMileDrive = 1 / driveSpeed;
+  const selectedGasProfile = vehicleProfiles[selectedGasType] && vehicleProfiles[selectedGasType].kind === "gas"
+    ? vehicleProfiles[selectedGasType]
+    : vehicleProfiles.midsize;
 
-  if (profile.kind === "ev") {
-    driveCostPerMile = (profile.kwhPerMile * electricPrice) / passengers;
-    driveCo2PerMile = (profile.kwhPerMile * gridIntensity) / passengers;
+  function buildDriveMode(id, profile) {
+    let driveCostPerMile = 0;
+    let driveCo2PerMile = 0;
+    let driveChargeHours = 0;
 
-    const distance = Number(value("distanceMiles") || 0);
-    const publicMiles = distance * publicChargeShare;
-    const publicChargingEnergy = publicMiles * profile.kwhPerMile;
-    const chargingSessions = publicMiles > 0 ? Math.max(1, Math.ceil(publicMiles / EV_ROADTRIP_RANGE)) : 0;
-    driveChargeHours = publicChargingEnergy / DEFAULT_FAST_CHARGE_POWER + chargingSessions * DEFAULT_CHARGE_SESSION_OVERHEAD;
-  } else {
-    driveCostPerMile = (gasPrice / profile.mpg) / passengers;
-    driveCo2PerMile = (8.887 / profile.mpg) / passengers;
+    if (profile.kind === "ev") {
+      driveCostPerMile = ((profile.kwhPerMile * electricPrice) / passengers) * monthAdjustment.driveCost;
+      driveCo2PerMile = (profile.kwhPerMile * gridIntensity) / passengers;
+
+      const publicMiles = distance * publicChargeShare;
+      const publicChargingEnergy = publicMiles * profile.kwhPerMile;
+      const chargingSessions = publicMiles > 0 ? Math.max(1, Math.ceil(publicMiles / EV_ROADTRIP_RANGE)) : 0;
+      driveChargeHours = (publicChargingEnergy / DEFAULT_FAST_CHARGE_POWER + chargingSessions * DEFAULT_CHARGE_SESSION_OVERHEAD) * monthAdjustment.driveTime;
+    } else {
+      driveCostPerMile = ((gasPrice / profile.mpg) / passengers) * monthAdjustment.driveCost;
+      driveCo2PerMile = (8.887 / profile.mpg) / passengers;
+    }
+
+    return {
+      id,
+      name: `Drive ${profile.label} (${passengers} occ.)`,
+      tags: ["Drive", profile.kind === "ev" ? "Electric" : "Gas"],
+      fixedCost: (driveFixedCost / passengers) * monthAdjustment.driveCost,
+      costPerMile: driveCostPerMile,
+      fixedTime: driveDeadhead * monthAdjustment.driveTime + driveChargeHours,
+      hoursPerMile: hoursPerMileDrive * monthAdjustment.driveTime,
+      fixedCo2: 0,
+      co2PerMile: driveCo2PerMile,
+      chargeHours: driveChargeHours,
+    };
   }
 
   const airfareTotal = Number(value("airfareTotal") || 0);
@@ -182,26 +296,16 @@ function buildModeModels() {
   const flightCo2PerMile = value("flightCo2PerMile");
 
   return [
-    {
-      id: "drive",
-      name: `Drive ${profile.label} (${passengers} occ.)`,
-      tags: ["Drive", profile.kind === "ev" ? "Electric" : "Gas"],
-      fixedCost: driveFixedCost / passengers,
-      costPerMile: driveCostPerMile,
-      fixedTime: driveDeadhead + driveChargeHours,
-      hoursPerMile: hoursPerMileDrive,
-      fixedCo2: 0,
-      co2PerMile: driveCo2PerMile,
-      chargeHours: driveChargeHours,
-    },
+    buildDriveMode("drive", selectedGasProfile),
+    buildDriveMode("drive_ev", vehicleProfiles.ev),
     {
       id: "flight",
       name: `Fly ${seat.label}`,
       tags: ["Flight"],
-      fixedCost: airfareTotal * seat.costMultiplier,
+      fixedCost: (airfareTotal * seat.costMultiplier * monthAdjustment.flightFare) / passengers,
       costPerMile: 0,
-      fixedTime: flightFixedTime,
-      hoursPerMile: 1 / DEFAULT_FLIGHT_SPEED,
+      fixedTime: flightFixedTime * monthAdjustment.flightTime,
+      hoursPerMile: (1 / DEFAULT_FLIGHT_SPEED) * monthAdjustment.flightTime,
       fixedCo2: 0,
       co2PerMile: flightCo2PerMile * seat.co2Multiplier,
       chargeHours: 0,
@@ -240,18 +344,18 @@ function buildCard(result, flags, index) {
   card.innerHTML = `
     <h4>${result.name}</h4>
     <div>${pills.join(" ")}</div>
-    <p class="metric">Total out-of-pocket cost: <strong>${money(result.monetaryCost)}</strong></p>
-    <p class="metric">Carbon: <strong>${num(result.co2)} kg</strong></p>
+    <p class="metric">Out-of-pocket cost (per person): <strong>${money(result.monetaryCost)}</strong></p>
+    <p class="metric">Carbon (per person): <strong>${num(result.co2)} kg</strong></p>
     <p class="metric">Door-to-door time: <strong>${num(result.hours)} h</strong>${result.chargeHours ? ` <span class="muted">(includes ${num(result.chargeHours)} h charging burden)</span>` : ""}</p>
-    <p class="metric">Generalized cost: <strong>${money(result.generalizedCost)}</strong></p>
+    <p class="metric">Generalized cost (per person): <strong>${money(result.generalizedCost)}</strong></p>
   `;
   return card;
 }
 
 function normalizedBars(results) {
   const dims = [
-    { key: "monetaryCost", label: "Cost", cls: "cost", suffix: "$" },
-    { key: "co2", label: "Environment", cls: "co2", suffix: "kg" },
+    { key: "monetaryCost", label: "Cost (per person)", cls: "cost", suffix: "$" },
+    { key: "co2", label: "Carbon (per person)", cls: "co2", suffix: "kg" },
     { key: "hours", label: "Time", cls: "time", suffix: "h" },
   ];
 
@@ -260,7 +364,7 @@ function normalizedBars(results) {
   dims.forEach((dim) => {
     const max = Math.max(...results.map((r) => r[dim.key]));
 
-    const dimLabel = dim.label === "CO2" ? "Carbon" : dim.label;
+    const dimLabel = dim.label;
     results.forEach((r) => {
       const row = document.createElement("div");
       row.className = "bar-row";
@@ -320,15 +424,15 @@ function buildInsights(results, valueOfTime) {
   const genDriveFlight = breakEvenDistance(driveModel, flightModel, "generalized");
 
   if (costDriveFlight) {
-    insights.push(`Drive vs flight cost break-even: ~${num(costDriveFlight, 0)} miles.`);
+    insights.push(`Drive vs flight per-person cost break-even: ~${num(costDriveFlight, 0)} miles.`);
   } else {
-    insights.push("Drive vs flight cost: no positive break-even in current assumptions.");
+    insights.push("Drive vs flight per-person cost: no positive break-even in current assumptions.");
   }
 
   if (co2DriveFlight) {
-    insights.push(`Drive vs flight carbon break-even: ~${num(co2DriveFlight, 0)} miles.`);
+    insights.push(`Drive vs flight per-person carbon break-even: ~${num(co2DriveFlight, 0)} miles.`);
   } else {
-    insights.push("Drive vs flight carbon: one mode stays cleaner across the full range.");
+    insights.push("Drive vs flight per-person carbon: one mode stays cleaner across the full range.");
   }
 
   if (genDriveFlight) {
@@ -336,6 +440,13 @@ function buildInsights(results, valueOfTime) {
   } else {
     insights.push("Drive vs flight generalized value: no positive switching point under current time value.");
   }
+
+  const lowestMonetary = results.reduce((best, r) => (r.monetaryCost < best.monetaryCost ? r : best), results[0]);
+  insights.push(
+    `At ${num(results[0].distance, 0)} miles, lowest per-person out-of-pocket mode is ${lowestMonetary.name} at ${money(
+      lowestMonetary.monetaryCost
+    )}.`
+  );
 
   const lowestGeneralized = results.reduce((best, r) => (r.generalizedCost < best.generalizedCost ? r : best), results[0]);
   insights.push(`At ${num(results[0].distance, 0)} miles, best combined money+time mode is ${lowestGeneralized.name}.`);
@@ -346,6 +457,8 @@ function buildInsights(results, valueOfTime) {
 function render() {
   const distance = value("distanceMiles");
   const valueOfTime = value("passengerWage") * (value("wageTimeFactor") / 100);
+  const monthKey = value("tripMonth") || "avg";
+  const monthAdjustment = MONTH_ADJUSTMENTS[monthKey] || MONTH_ADJUSTMENTS.avg;
 
   const results = buildModeModels().map((mode) => evaluateMode(mode, distance, valueOfTime));
 
@@ -366,7 +479,8 @@ function render() {
   effectiveVotEl.textContent = `${money(valueOfTime)}/hour`;
 
   const seat = seatProfiles[value("seatType")];
-  const airfare = Number(value("airfareTotal") || 0) * seat.costMultiplier;
+  const passengers = Math.max(1, Number(value("passengers") || 1));
+  const airfare = (Number(value("airfareTotal") || 0) * seat.costMultiplier * monthAdjustment.flightFare) / passengers;
   const effectivePerMile = distance > 0 ? airfare / distance : 0;
   effectiveFlightFareEl.textContent = `${money(effectivePerMile)}/mi`;
 
@@ -494,6 +608,7 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     publicChargeShare: "40",
     gridIntensity: "0.38",
     seatType: "economy",
+    tripMonth: "avg",
     vehicleType: "midsize",
     passengers: "1",
     driveSpeed: "58",
@@ -513,6 +628,9 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 
 const estimateBtn = document.getElementById('getEstimateBtn');
 if (estimateBtn) estimateBtn.addEventListener('click', fetchTripEstimate);
+
+const estimateAirfareBtn = document.getElementById('estimateAirfareBtn');
+if (estimateAirfareBtn) estimateAirfareBtn.addEventListener('click', estimateAirfareFromDistance);
 
 async function loadAirports() {
   if (airportsSmallLoaded) return airportsSmall;

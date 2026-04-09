@@ -4,7 +4,9 @@
   "description": "Travel mode dashboard with live trip estimate proxy",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test",
+    "test:watch": "node --test --watch"
   },
   "dependencies": {
     "express": "^4.18.2"

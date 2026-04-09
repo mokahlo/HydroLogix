@@ -70,6 +70,19 @@ body {
   font-size: 0.78rem;
 }
 
+.version-badge {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.14rem 0.44rem;
+  border: 1px solid rgba(15, 118, 110, 0.35);
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
 h1 {
   margin: 0.4rem 0;
   font-family: "Archivo Black", Impact, sans-serif;
