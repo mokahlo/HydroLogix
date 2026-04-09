@@ -1,7 +1,7 @@
 const seatProfiles = {
-  economy: { costMultiplier: 1, co2Multiplier: 1, label: "Economy" },
-  premium: { costMultiplier: 1.45, co2Multiplier: 1.3, label: "Premium Econ" },
-  business: { costMultiplier: 2.45, co2Multiplier: 1.9, label: "Business" },
+  economy: { costMultiplier: 1, co2Multiplier: 1, comfortBase: 72, label: "Economy" },
+  premium: { costMultiplier: 1.45, co2Multiplier: 1.3, comfortBase: 79, label: "Premium Econ" },
+  business: { costMultiplier: 2.45, co2Multiplier: 1.9, comfortBase: 87, label: "Business" },
 };
 
 // Semantic versioning: major.minor.patch
@@ -247,11 +247,11 @@ function buildModeModels() {
   const distance = Number(value("distanceMiles") || 0);
 
   const vehicleProfiles = {
-    small: { kind: "gas", mpg: 35, label: "Small car" },
-    midsize: { kind: "gas", mpg: 28, label: "Midsize car" },
-    suv: { kind: "gas", mpg: 22, label: "SUV" },
-    hybrid: { kind: "gas", mpg: 45, label: "Hybrid" },
-    ev: { kind: "ev", kwhPerMile: 0.31, label: "EV" },
+    small: { kind: "gas", mpg: 35, comfortBase: 68, label: "Small car" },
+    midsize: { kind: "gas", mpg: 28, comfortBase: 71, label: "Midsize car" },
+    suv: { kind: "gas", mpg: 22, comfortBase: 75, label: "SUV" },
+    hybrid: { kind: "gas", mpg: 45, comfortBase: 73, label: "Hybrid" },
+    ev: { kind: "ev", kwhPerMile: 0.31, comfortBase: 76, label: "EV" },
   };
 
   const hoursPerMileDrive = 1 / driveSpeed;
@@ -287,6 +287,7 @@ function buildModeModels() {
       hoursPerMile: hoursPerMileDrive * monthAdjustment.driveTime,
       fixedCo2: 0,
       co2PerMile: driveCo2PerMile,
+      comfortBase: profile.comfortBase,
       chargeHours: driveChargeHours,
     };
   }
@@ -308,21 +309,31 @@ function buildModeModels() {
       hoursPerMile: (1 / DEFAULT_FLIGHT_SPEED) * monthAdjustment.flightTime,
       fixedCo2: 0,
       co2PerMile: flightCo2PerMile * seat.co2Multiplier,
+      comfortBase: seat.comfortBase,
       chargeHours: 0,
     },
   ];
+}
+
+function scoreComfortEase(mode, hours) {
+  const base = Number(mode.comfortBase || 70);
+  const durationPenalty = Math.max(0, hours - 2) * 1.25;
+  const chargingPenalty = Number(mode.chargeHours || 0) * 1.1;
+  return Math.max(1, Math.min(100, base - durationPenalty - chargingPenalty));
 }
 
 function evaluateMode(mode, distance, valueOfTime) {
   const monetaryCost = mode.fixedCost + mode.costPerMile * distance;
   const hours = mode.fixedTime + mode.hoursPerMile * distance;
   const co2 = mode.fixedCo2 + mode.co2PerMile * distance;
+  const comfortEase = scoreComfortEase(mode, hours);
   return {
     ...mode,
     distance,
     monetaryCost,
     hours,
     co2,
+    comfortEase,
     generalizedCost: monetaryCost + valueOfTime * hours,
   };
 }
@@ -331,14 +342,21 @@ function winnerId(results, key) {
   return results.reduce((best, cur) => (cur[key] < best[key] ? cur : best), results[0]).id;
 }
 
+function winnerIdMax(results, key) {
+  return results.reduce((best, cur) => (cur[key] > best[key] ? cur : best), results[0]).id;
+}
+
 function buildCard(result, flags, index) {
   const card = document.createElement("article");
   card.className = "card";
   card.style.animationDelay = `${0.05 * index}s`;
 
   const pills = [];
+  if (result.id === "drive" && flags.driveGreenerThanFlight) pills.push('<span class="pill greener-bronze">Greener Than Flight</span>');
+  if (flags.bestValue === result.id) pills.push('<span class="pill best-value">Best Value</span>');
+  if (flags.bestComfort === result.id) pills.push('<span class="pill best-comfort">Best Comfort</span>');
   if (flags.bestCost === result.id) pills.push('<span class="pill best-cost">Lowest $</span>');
-  if (flags.bestCo2 === result.id) pills.push('<span class="pill best-co2">Lowest CO2</span>');
+  if (flags.bestCo2 === result.id) pills.push('<span class="pill best-co2">Greenest</span>');
   if (flags.bestTime === result.id) pills.push('<span class="pill best-time">Fastest</span>');
 
   card.innerHTML = `
@@ -461,8 +479,12 @@ function render() {
   const monthAdjustment = MONTH_ADJUSTMENTS[monthKey] || MONTH_ADJUSTMENTS.avg;
 
   const results = buildModeModels().map((mode) => evaluateMode(mode, distance, valueOfTime));
+  const byId = Object.fromEntries(results.map((r) => [r.id, r]));
 
   const flags = {
+    driveGreenerThanFlight: Boolean(byId.drive && byId.flight && byId.drive.co2 < byId.flight.co2),
+    bestValue: winnerId(results, "generalizedCost"),
+    bestComfort: winnerIdMax(results, "comfortEase"),
     bestCost: winnerId(results, "monetaryCost"),
     bestCo2: winnerId(results, "co2"),
     bestTime: winnerId(results, "hours"),

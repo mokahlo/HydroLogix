@@ -1,39 +1,230 @@
 [
-  { "code": "ATL", "name": "Atlanta Hartsfield-Jackson International (US)", "lat": 33.6407, "lon": -84.4277 },
-  { "code": "AUS", "name": "Austin-Bergstrom International (US)", "lat": 30.1945, "lon": -97.6699 },
-  { "code": "BOS", "name": "Boston Logan International (US)", "lat": 42.3656, "lon": -71.0096 },
-  { "code": "BWI", "name": "Baltimore/Washington International (US)", "lat": 39.1754, "lon": -76.6684 },
-  { "code": "CLT", "name": "Charlotte Douglas International (US)", "lat": 35.2140, "lon": -80.9431 },
-  { "code": "DEN", "name": "Denver International (US)", "lat": 39.8561, "lon": -104.6737 },
-  { "code": "DFW", "name": "Dallas/Fort Worth International (US)", "lat": 32.8998, "lon": -97.0403 },
-  { "code": "DTW", "name": "Detroit Metropolitan Wayne County (US)", "lat": 42.2162, "lon": -83.3554 },
-  { "code": "EWR", "name": "Newark Liberty International (US)", "lat": 40.6895, "lon": -74.1745 },
-  { "code": "IAD", "name": "Washington Dulles International (US)", "lat": 38.9531, "lon": -77.4565 },
-  { "code": "IAH", "name": "George Bush Intercontinental (US)", "lat": 29.9902, "lon": -95.3368 },
-  { "code": "JFK", "name": "John F. Kennedy International (US)", "lat": 40.6413, "lon": -73.7781 },
-  { "code": "LAS", "name": "Harry Reid International (US)", "lat": 36.0840, "lon": -115.1537 },
-  { "code": "LAX", "name": "Los Angeles International (US)", "lat": 33.9416, "lon": -118.4085 },
-  { "code": "MCO", "name": "Orlando International (US)", "lat": 28.4312, "lon": -81.3081 },
-  { "code": "MEX", "name": "Mexico City International (Mexico)", "lat": 19.4361, "lon": -99.0719 },
-  { "code": "MIA", "name": "Miami International (US)", "lat": 25.7959, "lon": -80.2870 },
-  { "code": "MSP", "name": "Minneapolis-Saint Paul International (US)", "lat": 44.8848, "lon": -93.2223 },
-  { "code": "ORD", "name": "Chicago O'Hare International (US)", "lat": 41.9742, "lon": -87.9073 },
-  { "code": "PDX", "name": "Portland International (US)", "lat": 45.5898, "lon": -122.5951 },
-  { "code": "PHX", "name": "Phoenix Sky Harbor International (US)", "lat": 33.4342, "lon": -112.0080 },
-  { "code": "SAN", "name": "San Diego International (US)", "lat": 32.7338, "lon": -117.1933 },
-  { "code": "SEA", "name": "Seattle-Tacoma International (US)", "lat": 47.4502, "lon": -122.3088 },
-  { "code": "SFO", "name": "San Francisco International (US)", "lat": 37.6213, "lon": -122.3790 },
-  { "code": "SJC", "name": "San Jose Mineta International (US)", "lat": 37.3626, "lon": -121.9290 },
-  { "code": "SLC", "name": "Salt Lake City International (US)", "lat": 40.7899, "lon": -111.9791 },
-  { "code": "TPA", "name": "Tampa International (US)", "lat": 27.9755, "lon": -82.5332 },
-  { "code": "YUL", "name": "Montreal Trudeau International (Canada)", "lat": 45.4706, "lon": -73.7408 },
-  { "code": "YVR", "name": "Vancouver International (Canada)", "lat": 49.1951, "lon": -123.1779 },
-  { "code": "YYC", "name": "Calgary International (Canada)", "lat": 51.1315, "lon": -114.0106 },
-  { "code": "YYZ", "name": "Toronto Pearson International (Canada)", "lat": 43.6777, "lon": -79.6248 },
-  { "code": "CUN", "name": "Cancun International (Mexico)", "lat": 21.0365, "lon": -86.8771 },
-  { "code": "GDL", "name": "Guadalajara International (Mexico)", "lat": 20.5218, "lon": -103.3100 },
-  { "code": "MTY", "name": "Monterrey International (Mexico)", "lat": 25.7785, "lon": -100.1070 },
-  { "code": "PVR", "name": "Puerto Vallarta International (Mexico)", "lat": 20.6801, "lon": -105.2542 },
-  { "code": "SJD", "name": "Los Cabos International (Mexico)", "lat": 23.1518, "lon": -109.7210 },
-  { "code": "TIJ", "name": "Tijuana International (Mexico)", "lat": 32.5411, "lon": -116.9701 }
+    {
+        "code":  "PVR",
+        "name":  "Puerto Vallarta International Airport (MX)",
+        "lat":  20.6799,
+        "lon":  -105.2544
+    },
+    {
+        "code":  "PHX",
+        "name":  "Phoenix Sky Harbor International Airport (US)",
+        "lat":  33.4353,
+        "lon":  -112.0059
+    },
+    {
+        "code":  "SEA",
+        "name":  "Seattle–Tacoma International Airport (US)",
+        "lat":  47.4479,
+        "lon":  -122.3103
+    },
+    {
+        "code":  "SAN",
+        "name":  "San Diego International Airport (US)",
+        "lat":  32.7336,
+        "lon":  -117.19
+    },
+    {
+        "code":  "PDX",
+        "name":  "Portland International Airport (US)",
+        "lat":  45.5887,
+        "lon":  -122.598
+    },
+    {
+        "code":  "MSP",
+        "name":  "Minneapolis–Saint Paul International Airport / Wold–Chamberlain Field (US)",
+        "lat":  44.8801,
+        "lon":  -93.2217
+    },
+    {
+        "code":  "MIA",
+        "name":  "Miami International Airport (US)",
+        "lat":  25.796,
+        "lon":  -80.2898
+    },
+    {
+        "code":  "ORD",
+        "name":  "Chicago O\u0027Hare International Airport (US)",
+        "lat":  41.9786,
+        "lon":  -87.9048
+    },
+    {
+        "code":  "MTY",
+        "name":  "Monterrey International Airport (MX)",
+        "lat":  25.7785,
+        "lon":  -100.107
+    },
+    {
+        "code":  "SFO",
+        "name":  "San Francisco International Airport (US)",
+        "lat":  37.6198,
+        "lon":  -122.3748
+    },
+    {
+        "code":  "YVR",
+        "name":  "Vancouver International Airport (CA)",
+        "lat":  49.1939,
+        "lon":  -123.184
+    },
+    {
+        "code":  "YUL",
+        "name":  "Montreal / Pierre Elliott Trudeau International Airport (CA)",
+        "lat":  45.4678,
+        "lon":  -73.7423
+    },
+    {
+        "code":  "YYZ",
+        "name":  "Toronto Pearson International Airport (CA)",
+        "lat":  43.6759,
+        "lon":  -79.6294
+    },
+    {
+        "code":  "YYC",
+        "name":  "Calgary International Airport (CA)",
+        "lat":  51.1188,
+        "lon":  -114.0099
+    },
+    {
+        "code":  "TPA",
+        "name":  "Tampa International Airport (US)",
+        "lat":  27.9755,
+        "lon":  -82.5332
+    },
+    {
+        "code":  "SJD",
+        "name":  "Los Cabos International Airport (MX)",
+        "lat":  23.1519,
+        "lon":  -109.7207
+    },
+    {
+        "code":  "SJC",
+        "name":  "Norman Y. Mineta San Jose International Airport (US)",
+        "lat":  37.3625,
+        "lon":  -121.9292
+    },
+    {
+        "code":  "TIJ",
+        "name":  "General Abelardo L. Rodriguez International Airport (MX)",
+        "lat":  32.541,
+        "lon":  -116.97
+    },
+    {
+        "code":  "SLC",
+        "name":  "Salt Lake City International Airport (US)",
+        "lat":  40.7889,
+        "lon":  -111.9799
+    },
+    {
+        "code":  "CUN",
+        "name":  "Cancún International Airport (MX)",
+        "lat":  21.0408,
+        "lon":  -86.8735
+    },
+    {
+        "code":  "CLT",
+        "name":  "Charlotte Douglas International Airport (US)",
+        "lat":  35.214,
+        "lon":  -80.9431
+    },
+    {
+        "code":  "DFW",
+        "name":  "Dallas Fort Worth International Airport (US)",
+        "lat":  32.8968,
+        "lon":  -97.038
+    },
+    {
+        "code":  "DEN",
+        "name":  "Denver International Airport (US)",
+        "lat":  39.86,
+        "lon":  -104.6738
+    },
+    {
+        "code":  "BWI",
+        "name":  "Baltimore/Washington International Thurgood Marshall Airport (US)",
+        "lat":  39.1754,
+        "lon":  -76.6683
+    },
+    {
+        "code":  "AUS",
+        "name":  "Austin Bergstrom International Airport (US)",
+        "lat":  30.1975,
+        "lon":  -97.662
+    },
+    {
+        "code":  "ATL",
+        "name":  "Hartsfield Jackson Atlanta International Airport (US)",
+        "lat":  33.6367,
+        "lon":  -84.4281
+    },
+    {
+        "code":  "BOS",
+        "name":  "Boston Logan International Airport (US)",
+        "lat":  42.362,
+        "lon":  -71.0079
+    },
+    {
+        "code":  "BNA",
+        "name":  "Nashville International Airport (US)",
+        "lat":  36.1245,
+        "lon":  -86.6782
+    },
+    {
+        "code":  "DTW",
+        "name":  "Detroit Metropolitan Wayne County Airport (US)",
+        "lat":  42.2138,
+        "lon":  -83.3538
+    },
+    {
+        "code":  "LAX",
+        "name":  "Los Angeles International Airport (US)",
+        "lat":  33.9425,
+        "lon":  -118.408
+    },
+    {
+        "code":  "LAS",
+        "name":  "Harry Reid International Airport (US)",
+        "lat":  36.0834,
+        "lon":  -115.1518
+    },
+    {
+        "code":  "MEX",
+        "name":  "Mexico City Benito Juárez International Airport (MX)",
+        "lat":  19.4358,
+        "lon":  -99.0703
+    },
+    {
+        "code":  "MCO",
+        "name":  "Orlando International Airport (US)",
+        "lat":  28.4294,
+        "lon":  -81.309
+    },
+    {
+        "code":  "JFK",
+        "name":  "John F. Kennedy International Airport (US)",
+        "lat":  40.6394,
+        "lon":  -73.7793
+    },
+    {
+        "code":  "GDL",
+        "name":  "Guadalajara International Airport (MX)",
+        "lat":  20.5233,
+        "lon":  -103.3101
+    },
+    {
+        "code":  "EWR",
+        "name":  "Newark Liberty International Airport (US)",
+        "lat":  40.6894,
+        "lon":  -74.1705
+    },
+    {
+        "code":  "IAH",
+        "name":  "George Bush Intercontinental Airport (US)",
+        "lat":  29.9844,
+        "lon":  -95.3414
+    },
+    {
+        "code":  "IAD",
+        "name":  "Washington Dulles International Airport (US)",
+        "lat":  38.9445,
+        "lon":  -77.4558
+    }
 ]

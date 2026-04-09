@@ -375,10 +375,26 @@ label span {
 .pill {
   display: inline-flex;
   margin-top: 0.45rem;
+  margin-right: 0.3rem;
   border-radius: 999px;
   padding: 0.12rem 0.5rem;
   font-size: 0.72rem;
   color: #fff;
+}
+
+.pill.best-value {
+  background: linear-gradient(90deg, #d4af37 0%, #f5d76e 100%);
+  color: #2f2300;
+}
+
+.pill.best-comfort {
+  background: linear-gradient(90deg, #a8a8a8 0%, #d8d8d8 100%);
+  color: #202020;
+}
+
+.pill.greener-bronze {
+  background: linear-gradient(90deg, #8c6239 0%, #c08a52 100%);
+  color: #fff7eb;
 }
 
 .pill.best-cost {
