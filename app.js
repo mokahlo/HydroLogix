@@ -431,10 +431,10 @@ async function fetchTripEstimate() {
     lastLiveEstimates = data;
     // If the API returned matched airport info, populate the inputs with a consistent format
     if (data && data.from && data.from.code && state.fromCity) {
-      state.fromCity.value = `${data.from.name} (${data.from.code})`;
+      state.fromCity.value = data.from.display || `${data.from.name} (${data.from.code})`;
     }
     if (data && data.to && data.to.code && state.toCity) {
-      state.toCity.value = `${data.to.name} (${data.to.code})`;
+      state.toCity.value = data.to.display || `${data.to.name} (${data.to.code})`;
     }
     if (data && typeof data.distanceMiles === 'number' && state.distanceMiles) {
       // update slider to match returned distance
@@ -453,10 +453,12 @@ function displayEstimate(data) {
   if (!tripEstimateEl) return;
   const parts = [];
   if (data && data.from) {
-    parts.push(`<div><strong>From:</strong> ${data.from.name} (${data.from.code})</div>`);
+    const f = data.from;
+    parts.push(`<div><strong>From:</strong> ${f.display || `${f.name} (${f.code})`} ${f.lat ? `&nbsp;<span class="muted">(${num(f.lat,3)}, ${num(f.lon,3)})</span>` : ''}</div>`);
   }
   if (data && data.to) {
-    parts.push(`<div><strong>To:</strong> ${data.to.name} (${data.to.code})</div>`);
+    const t = data.to;
+    parts.push(`<div><strong>To:</strong> ${t.display || `${t.name} (${t.code})`} ${t.lat ? `&nbsp;<span class="muted">(${num(t.lat,3)}, ${num(t.lon,3)})</span>` : ''}</div>`);
   }
   if (data && typeof data.distanceMiles === 'number') {
     parts.push(`<strong>Estimated distance:</strong> ${num(data.distanceMiles, 1)} mi`);
@@ -543,7 +545,7 @@ async function loadAirports() {
   const airportsListEl = document.getElementById("airportsList");
   if (!airportsListEl) return;
   try {
-    const res = await fetch("/airports.json");
+    const res = await fetch("/airports-small.json");
     if (!res.ok) return;
     const airports = await res.json();
     airports.forEach(a => {

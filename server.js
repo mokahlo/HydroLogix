@@ -53,8 +53,25 @@ app.post('/api/estimate', async (req, res) => {
     }
 
     // Lightweight endpoint: return distance and matched airport info.
-    const fromMatch = fromCoord ? { code: fromCoord.code, name: fromCoord.name } : null;
-    const toMatch = toCoord ? { code: toCoord.code, name: toCoord.name } : null;
+    const fromMatch = fromCoord
+      ? {
+          code: fromCoord.code,
+          name: fromCoord.name,
+          lat: fromCoord.lat,
+          lon: fromCoord.lon,
+          display: `${fromCoord.name} (${fromCoord.code})`,
+        }
+      : null;
+    const toMatch = toCoord
+      ? {
+          code: toCoord.code,
+          name: toCoord.name,
+          lat: toCoord.lat,
+          lon: toCoord.lon,
+          display: `${toCoord.name} (${toCoord.code})`,
+        }
+      : null;
+
     res.json({ distanceMiles, from: fromMatch, to: toMatch });
   } catch (err) {
     res.status(500).json({ error: err.message });

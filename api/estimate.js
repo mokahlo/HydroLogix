@@ -56,8 +56,25 @@ module.exports = async (req, res) => {
     }
 
     // API intentionally lightweight: return computed distance and matched airport info.
-    const fromMatch = fromCoord ? { code: fromCoord.code, name: fromCoord.name } : null;
-    const toMatch = toCoord ? { code: toCoord.code, name: toCoord.name } : null;
+    const fromMatch = fromCoord
+      ? {
+          code: fromCoord.code,
+          name: fromCoord.name,
+          lat: fromCoord.lat,
+          lon: fromCoord.lon,
+          display: `${fromCoord.name} (${fromCoord.code})`,
+        }
+      : null;
+    const toMatch = toCoord
+      ? {
+          code: toCoord.code,
+          name: toCoord.name,
+          lat: toCoord.lat,
+          lon: toCoord.lon,
+          display: `${toCoord.name} (${toCoord.code})`,
+        }
+      : null;
+
     res.status(200).json({ distanceMiles, from: fromMatch, to: toMatch });
   } catch (err) {
     console.error(err);
