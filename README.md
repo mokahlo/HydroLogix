@@ -13,7 +13,7 @@ HydroLogix is an interactive hydration benchmarking app focused on hot, dry Sout
   - altitude
   - activity level
 - Recommends hourly ideal intake rates and estimated dehydration rates from physiology + environment
-- Uses typed `hours outside`; when set to `0`, model temperature falls back to room temperature
+- Uses typed `hours outside` (fill-in number field); `0` uses room temperature and higher values increase exposure demand
 - Triggers a **High Demand** state when heat index crosses threshold
 - Renders comparison cards, normalized bars, and actionable insights
 - Uses baseline component water-loss rates of **0.5 oz/h breathing**, **1.2 oz/h evaporation/sweat**, and **1.0 oz/h waste**

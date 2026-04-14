@@ -114,11 +114,6 @@ h1 {
   backdrop-filter: blur(5px);
 }
 
-.comparison-panel {
-  max-width: 1200px;
-  margin: 0 auto 1rem;
-}
-
 .controls-header {
   display: flex;
   justify-content: space-between;
@@ -164,6 +159,43 @@ h1 {
   padding: 0.75rem;
   border-radius: 10px;
   margin-bottom: 1rem;
+}
+
+.demand-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+}
+
+.demand-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.14rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.demand-badge.demand-normal {
+  background: #e8f8ee;
+  color: #1f7a35;
+  border-color: #9dddb1;
+}
+
+.demand-badge.demand-elevated {
+  background: #fff5e8;
+  color: #9a4f00;
+  border-color: #ffd29b;
+}
+
+.demand-badge.demand-high {
+  background: #ffe8e8;
+  color: #a61e24;
+  border-color: #ffb4b8;
 }
 
 .estimate-row {

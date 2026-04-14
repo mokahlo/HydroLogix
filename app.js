@@ -1,5 +1,5 @@
 // Semantic versioning: major.minor.patch
-const APP_VERSION = "1.1.2";
+const APP_VERSION = "1.1.3";
 const HIGH_DEMAND_HEAT_INDEX = 105;
 const ROOM_TEMP_F = 72;
 const BASE_BREATHING_LOSS_OZ_PER_HOUR = 0.5;
@@ -374,9 +374,11 @@ function calculateHydrationBenchmark(weightLbs, ageYears, factors) {
 
   const sexMultiplier = ({ female: 0.97, male: 1.03, intersex: 1.0, unspecified: 1.0 })[String(factors.sexAssignedAtBirth || "unspecified")] ?? 1.0;
   const acclMultiplier = ({ low: 1.08, moderate: 1.03, high: 0.95 })[String(factors.acclimatizationLevel || "moderate")] ?? 1.0;
+  const outsideHours = clamp(Number(factors.hoursOutside) || 0, 0, 24);
+  const exposureMultiplier = outsideHours > 0 ? 1 + Math.min(outsideHours, 12) * 0.015 : 1.0;
 
   const evap = calculateEvaporativeDemand(factors);
-  const idealDailyOz = adjustedBaseOz * sexMultiplier * acclMultiplier * evap.multiplier;
+  const idealDailyOz = adjustedBaseOz * sexMultiplier * acclMultiplier * evap.multiplier * exposureMultiplier;
   const idealHourlyOz = idealDailyOz / 24;
 
   const breathingMlPerHour = ozToMl(BASE_BREATHING_LOSS_OZ_PER_HOUR);
@@ -395,6 +397,8 @@ function calculateHydrationBenchmark(weightLbs, ageYears, factors) {
     evaporationMlPerHour,
     wasteMlPerHour,
     evaporativeMultiplier: evap.multiplier,
+    exposureMultiplier,
+    outsideHours,
     heatIndex: evap.heatIndex,
     highDemand: evap.highDemand,
   };
@@ -412,6 +416,7 @@ function buildModeModels() {
     sexAssignedAtBirth: value("sexAssignedAtBirth") || "unspecified",
     acclimatizationLevel: value("acclimatizationLevel") || "moderate",
     altitudeFt: getAltitudeFtCanonical(),
+    hoursOutside,
   };
 
   const profile = calculateHydrationBenchmark(getWeightLbsCanonical(), Number(value("ageYears") || 0), factors);
@@ -427,6 +432,8 @@ function buildModeModels() {
       evaporationMlPerHour: profile.evaporationMlPerHour,
       wasteMlPerHour: profile.wasteMlPerHour,
       evaporativeMultiplier: profile.evaporativeMultiplier,
+      exposureMultiplier: profile.exposureMultiplier,
+      outsideHours: profile.outsideHours,
       heatIndex: profile.heatIndex,
       highDemand: profile.highDemand,
       effectiveTempF,
@@ -565,6 +572,10 @@ function buildInsights(results) {
     `Evaporative burden multiplier is ${num(ideal.evaporativeMultiplier, 2)}× based on your climate and activity factors.`
   );
 
+  insights.push(
+    `Outside-exposure multiplier is ${num(ideal.exposureMultiplier || 1, 2)}× from ${num(ideal.outsideHours || 0, 1)} hours outside.`
+  );
+
   return insights;
 }
 
@@ -611,8 +622,13 @@ function render() {
     const displayedEffectiveTemp = units === "si" ? fToC(lead.effectiveTempF) : lead.effectiveTempF;
     const tempUnit = units === "si" ? "°C" : "°F";
     const tempSource = lead.usedRoomTemp ? "room temperature fallback" : "ambient/weather temperature";
-    const demandState = lead.highDemand ? "Active" : "Not active";
-    tripEstimateEl.innerHTML = `<strong>High Demand trigger:</strong> ${demandState} <span class="muted">(activates when heat index > ${thresholdText})</span><br/><span class="muted">Effective temperature: ${num(displayedEffectiveTemp, 1)}${tempUnit} (${tempSource})</span>`;
+    const badgeState = lead.highDemand
+      ? { label: "High Demand", cls: "demand-high" }
+      : lead.heatIndex >= 95
+        ? { label: "Elevated Demand", cls: "demand-elevated" }
+        : { label: "Normal Demand", cls: "demand-normal" };
+
+    tripEstimateEl.innerHTML = `<div class="demand-row"><strong>Demand status:</strong> <span class="demand-badge ${badgeState.cls}">${badgeState.label}</span> <span class="muted">(high-demand trigger: heat index > ${thresholdText})</span></div><span class="muted">Effective temperature: ${num(displayedEffectiveTemp, 1)}${tempUnit} (${tempSource})</span><br/><span class="muted">Hours outside: ${num(lead.outsideHours || 0, 1)} h (exposure multiplier ${num(lead.exposureMultiplier || 1, 2)}×)</span>`;
   }
 
   updateOutputLabels();

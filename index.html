@@ -33,7 +33,7 @@
 
         <p class="input-guide">
           <strong>Quick start:</strong> Enter a location (city, city/state, or ZIP) and click <em>Auto-fill Weather</em>, then adjust personal factors.
-          Your benchmark updates automatically as each input changes.
+          Every change updates the benchmark immediately.
         </p>
 
         <div class="control-grid">
@@ -43,21 +43,21 @@
               <option value="us">US customary</option>
               <option value="si">SI metric</option>
             </select>
-            <span class="hint">Switches all unit-based inputs and readouts between US and SI values.</span>
+            <span class="hint">Switches unit-based inputs and readouts between US and SI.</span>
           </label>
 
           <label>
             User weight
             <input id="weightLbs" type="number" min="60" max="400" step="1" value="180" />
             <span data-output="weightLbs"></span>
-            <span class="hint">Used for baseline ideal intake. Rule of thumb starts near <strong>0.5 oz per lb/day</strong> before climate multipliers.</span>
+            <span class="hint">Used for baseline intake. Starting point is <strong>0.5 oz/lb/day</strong> before adjustments.</span>
           </label>
 
           <label>
             User age (years)
             <input id="ageYears" type="number" min="12" max="100" step="1" value="38" />
             <span data-output="ageYears"></span>
-            <span class="hint">Age makes a small baseline adjustment. Example: older adults may require a slightly higher target.</span>
+            <span class="hint">Applies a small baseline adjustment by age group.</span>
           </label>
 
           <label>
@@ -68,7 +68,7 @@
               <option value="intersex">Intersex</option>
               <option value="unspecified">Prefer not to say</option>
             </select>
-            <span class="hint">Optional personalization input. Applies a small baseline multiplier only (not a medical diagnosis).</span>
+            <span class="hint">Optional personalization input; applies a small model multiplier.</span>
           </label>
 
           <label>
@@ -78,7 +78,7 @@
               <option value="moderate">Moderate (partially acclimatized)</option>
               <option value="high">High (well acclimatized)</option>
             </select>
-            <span class="hint">Adjusts demand based on conditioning and heat adaptation. Lower acclimatization generally increases fluid need.</span>
+            <span class="hint">Heat adaptation factor. Lower acclimatization generally increases demand.</span>
           </label>
 
           <label>
@@ -88,21 +88,21 @@
               <option value="moderate">Moderate</option>
               <option value="active">Active</option>
             </select>
-            <span class="hint"><strong>Sedentary</strong> = minimal exertion, <strong>Moderate</strong> = walking/light work, <strong>Active</strong> = exercise or outdoor labor.</span>
+            <span class="hint"><strong>Sedentary</strong> = minimal exertion, <strong>Moderate</strong> = light work/walking, <strong>Active</strong> = exercise/outdoor labor.</span>
           </label>
 
           <label>
             Hours outside
             <input id="hoursOutside" type="number" min="0" max="24" step="0.25" value="1" />
             <span data-output="hoursOutside"></span>
-            <span class="hint">If set to <strong>0</strong>, temperature in the model defaults to room temperature.</span>
+            <span class="hint">Typed numeric input (not a slider). <strong>0</strong> uses room temperature; higher values progressively increase exposure demand.</span>
           </label>
 
           <label>
             Location (weather source)
             <input id="cityName" type="text" value="Phoenix" placeholder="e.g., Phoenix, AZ or 85004" />
             <button id="loadWeatherBtn" type="button" class="estimate-btn">Auto-fill Weather</button>
-            <span class="hint">Supports <strong>city</strong> (Phoenix), <strong>city + state</strong> (Phoenix, AZ), or <strong>US ZIP</strong> (85004). This browser-only lookup fills temperature, humidity, dew point, and altitude.</span>
+            <span class="hint">Supports <strong>city</strong>, <strong>city + state</strong>, or <strong>US ZIP</strong>. Fills temperature, humidity, dew point, and altitude.</span>
             <span id="weatherLocation" class="muted"></span>
             <span id="weatherStatus" class="muted"></span>
           </label>
@@ -111,28 +111,28 @@
             Temperature
             <input id="tempF" type="range" min="60" max="125" step="1" value="104" />
             <span data-output="tempF"></span>
-            <span class="hint">Ambient air temperature. Values above <strong>100°F</strong> can sharply increase hydration demand. If <strong>Hours outside = 0</strong>, model uses room temperature instead.</span>
+            <span class="hint">Ambient air temperature. Values above <strong>100°F</strong> can sharply increase demand.</span>
           </label>
 
           <label>
             Relative humidity (%)
             <input id="humidity" type="range" min="5" max="80" step="1" value="14" />
             <span data-output="humidity"></span>
-            <span class="hint">Lower humidity increases evaporative loss. In this model, <strong>&lt;15%</strong> is treated as very dry/high demand.</span>
+            <span class="hint">Lower humidity increases evaporative loss; <strong>&lt;15%</strong> is treated as very dry/high demand.</span>
           </label>
 
           <label>
             Dew point
             <input id="dewPointF" type="range" min="10" max="75" step="1" value="33" />
             <span data-output="dewPointF"></span>
-            <span class="hint">Another dryness signal: lower dew point generally means drier air and greater fluid loss risk.</span>
+            <span class="hint">Lower dew point generally means drier air and greater fluid-loss risk.</span>
           </label>
 
           <label>
             Altitude
             <input id="altitudeFt" type="range" min="0" max="9000" step="100" value="1086" />
             <span data-output="altitudeFt"></span>
-            <span class="hint">Elevation above sea level. Higher altitude adds a mild hydration burden (especially over 4,000 ft).</span>
+            <span class="hint">Elevation above sea level; higher altitude adds mild extra demand (especially above 4,000 ft).</span>
           </label>
 
         </div>
@@ -148,6 +148,12 @@
         <div id="tripEstimate" class="trip-estimate" aria-live="polite"></div>
 
         <div id="cards" class="cards"></div>
+
+        <div class="chart-area" aria-label="water-loss-components">
+          <h3>Water Loss Components</h3>
+          <p class="muted">Normalized bars compare breathing, evaporation/sweat, and waste water-loss rates.</p>
+          <div id="barChart" class="bar-chart"></div>
+        </div>
 
         <div class="insights">
           <h3>Hydration Insights</h3>
@@ -165,12 +171,6 @@
         </div>
       </section>
     </main>
-
-    <section class="panel comparison-panel" aria-label="colorful-comparison">
-      <h2>Colorful Comparison (Water Loss Components)</h2>
-      <p class="muted">Normalized bars compare breathing, evaporation/sweat, and waste water-loss rates.</p>
-      <div id="barChart" class="bar-chart"></div>
-    </section>
 
     <footer>
       <p>
