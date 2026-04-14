@@ -17,10 +17,10 @@
     <div class="bg-orb bg-orb-b"></div>
     <header class="hero">
       <p class="eyebrow">Hydration Benchmark <span id="appVersion" class="version-badge" title="Semantic versioning: major.minor.patch">v1.0.0</span></p>
-      <h1>HydroLogix: User Intake Hydration Benchmark</h1>
+      <h1>HydroLogix: Ideal Intake & Dehydration Estimates</h1>
       <p class="subhead">
-        Compare hydration intake against climate-adjusted benchmark needs for desert conditions.
-        Tune weight, temperature, humidity, metabolic window, and fluid type coefficients.
+        Get estimated ideal intake and dehydration-rate recommendations for desert conditions.
+        Tune physiology, climate, and metabolic window inputs.
       </p>
     </header>
 
@@ -50,7 +50,7 @@
             User weight
             <input id="weightLbs" type="number" min="60" max="400" step="1" value="180" />
             <span data-output="weightLbs"></span>
-            <span class="hint">Used for baseline hydration need. Rule of thumb: about <strong>0.5 oz per lb/day</strong> before climate multipliers.</span>
+            <span class="hint">Used for baseline ideal intake. Rule of thumb starts near <strong>0.5 oz per lb/day</strong> before climate multipliers.</span>
           </label>
 
           <label>
@@ -132,31 +132,14 @@
             Hours since last intake
             <input id="hoursSinceIntake" type="range" min="0" max="12" step="0.5" value="3" />
             <span data-output="hoursSinceIntake"></span>
-            <span class="hint">How long it has been since your last drink. Longer gaps increase short-term catch-up target.</span>
-          </label>
-
-          <label>
-            Intake rate
-            <input id="intakeRate" type="number" min="0" max="1500" step="10" value="300" />
-            <span data-output="intakeRate"></span>
-            <span class="hint">Average fluid intake rate during this period. Effective intake is rate × hours since last intake.</span>
-          </label>
-
-          <label>
-            Fluid type
-            <select id="fluidType">
-              <option value="water">Water (1.0)</option>
-              <option value="coffee">Coffee (0.8)</option>
-              <option value="electrolyte">Electrolytes (1.2)</option>
-            </select>
-            <span class="hint">Coefficient adjusts effective hydration: water baseline (1.0), coffee lower (0.8), electrolytes higher (1.2).</span>
+            <span class="hint">Defines the recommendation window for estimated ideal intake and projected fluid loss.</span>
           </label>
 
         </div>
       </section>
 
       <section class="panel outputs" aria-label="results">
-        <h2>Hydration Results (Current Conditions)</h2>
+        <h2>Recommendation Results (Current Conditions)</h2>
         <div class="results-meta">
           <p class="effective-vot">Heat index: <strong id="effectiveHeatIndex"></strong></p>
           <p class="effective-vot">Evaporative multiplier: <strong id="effectiveEvapMultiplier"></strong></p>
@@ -174,9 +157,9 @@
         <div class="insights">
           <h3>Hydration Insights</h3>
           <p class="insight-explainer">
-            Benchmarks are climate-adjusted and include a metabolic window multiplier.
+            Recommendations are climate-adjusted and include metabolic-window context.
             <br/>High Demand triggers when heat index crosses risk threshold.
-            <br/>Gap = benchmark target − effective intake.
+            <br/>Displayed rates estimate ideal intake need and dehydration pressure.
           </p>
           <ul id="insightList"></ul>
         </div>

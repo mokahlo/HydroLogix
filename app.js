@@ -1,13 +1,5 @@
 // Semantic versioning: major.minor.patch
-// major = breaking changes, minor = new features, patch = fixes.
-const APP_VERSION = "1.0.0";
-
-const FLUID_COEFFICIENTS = {
-  water: { coefficient: 1.0, label: "Water" },
-  coffee: { coefficient: 0.8, label: "Coffee" },
-  electrolyte: { coefficient: 1.2, label: "Electrolytes" },
-};
-
+const APP_VERSION = "1.1.0";
 const HIGH_DEMAND_HEAT_INDEX = 105;
 
 const ids = [
@@ -23,8 +15,6 @@ const ids = [
   "dewPointF",
   "altitudeFt",
   "hoursSinceIntake",
-  "intakeRate",
-  "fluidType",
 ];
 
 const state = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -40,17 +30,15 @@ const weatherLocationEl = document.getElementById("weatherLocation");
 const weatherStatusEl = document.getElementById("weatherStatus");
 const loadWeatherBtn = document.getElementById("loadWeatherBtn");
 
-if (appVersionEl) {
-  appVersionEl.textContent = `v${APP_VERSION}`;
-}
+if (appVersionEl) appVersionEl.textContent = `v${APP_VERSION}`;
 
 const comparisonIdeas = [
-  "Track intake logs over rolling 24-hour windows for adherence trends.",
-  "Add sweat-rate estimation from activity intensity and ambient conditions.",
-  "Compare hydration gap trajectories for water vs electrolyte strategies.",
-  "Include overnight recovery and next-day carryover effects.",
-  "Model sodium replacement guidance alongside fluid intake.",
-  "Add alerting when repeated High Demand windows occur in a week.",
+  "Log hydration adherence versus recommended hourly target.",
+  "Track dehydration rate trends by time-of-day and activity.",
+  "Add sweat-rate calibration from observed body-mass change.",
+  "Include sodium replacement guidance based on climate burden.",
+  "Add warning tiers for sustained high dehydration rates.",
+  "Model recovery windows after high-demand exposure.",
 ];
 
 function value(id) {
@@ -64,12 +52,17 @@ function num(v, digits = 2) {
   return Number(v).toFixed(digits);
 }
 
-function mlToOz(ml) {
-  return (Number(ml) || 0) * 0.033814;
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
-function ozToMl(oz) {
-  return (Number(oz) || 0) * 29.5735;
+function toFiniteNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function unitSystem() {
+  return String(value("unitSystem") || "us").toLowerCase() === "si" ? "si" : "us";
 }
 
 function lbsToKg(lbs) {
@@ -96,12 +89,12 @@ function mToFt(m) {
   return (Number(m) || 0) * 3.28084;
 }
 
-function unitSystem() {
-  return String(value("unitSystem") || "us").toLowerCase() === "si" ? "si" : "us";
+function mlToOz(ml) {
+  return (Number(ml) || 0) * 0.033814;
 }
 
-function clamp(valueToClamp, min, max) {
-  return Math.max(min, Math.min(max, valueToClamp));
+function ozToMl(oz) {
+  return (Number(oz) || 0) * 29.5735;
 }
 
 function escapeHtml(text) {
@@ -116,47 +109,14 @@ function escapeHtml(text) {
 function weatherStatus(message, isError = false) {
   if (!weatherStatusEl) return;
   const safe = escapeHtml(message);
-  weatherStatusEl.innerHTML = isError
-    ? `<span style="color:#ffb4b4;">${safe}</span>`
-    : safe;
+  weatherStatusEl.innerHTML = isError ? `<span style="color:#ffb4b4;">${safe}</span>` : safe;
 }
 
-function toFiniteNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function setFieldIfFinite(fieldId, value, transform = (v) => v) {
-  const numeric = toFiniteNumber(value);
-  if (numeric === null) return false;
-  if (!state[fieldId]) return false;
+function setFieldIfFinite(fieldId, rawValue, transform = (v) => v) {
+  const numeric = toFiniteNumber(rawValue);
+  if (numeric === null || !state[fieldId]) return false;
   state[fieldId].value = String(transform(numeric));
   return true;
-}
-
-function getWeightLbsCanonical() {
-  const raw = Number(value("weightLbs") || 0);
-  return unitSystem() === "si" ? kgToLbs(raw) : raw;
-}
-
-function getTempFCanonical() {
-  const raw = Number(value("tempF") || 0);
-  return unitSystem() === "si" ? cToF(raw) : raw;
-}
-
-function getDewPointFCanonical() {
-  const raw = Number(value("dewPointF") || 0);
-  return unitSystem() === "si" ? cToF(raw) : raw;
-}
-
-function getAltitudeFtCanonical() {
-  const raw = Number(value("altitudeFt") || 0);
-  return unitSystem() === "si" ? mToFt(raw) : raw;
-}
-
-function getIntakeRateMlPerHourCanonical() {
-  const raw = Number(value("intakeRate") || 0);
-  return unitSystem() === "si" ? raw : ozToMl(raw);
 }
 
 function setInputConstraintsForUnitSystem(system) {
@@ -183,12 +143,6 @@ function setInputConstraintsForUnitSystem(system) {
     state.altitudeFt.max = system === "si" ? "2750" : "9000";
     state.altitudeFt.step = system === "si" ? "50" : "100";
   }
-
-  if (state.intakeRate) {
-    state.intakeRate.min = "0";
-    state.intakeRate.max = system === "si" ? "1500" : "50";
-    state.intakeRate.step = system === "si" ? "10" : "0.5";
-  }
 }
 
 function convertDisplayedValuesForUnitSystem(currentSystem, nextSystem) {
@@ -201,23 +155,40 @@ function convertDisplayedValuesForUnitSystem(currentSystem, nextSystem) {
   const dew = Number(value("dewPointF") || 0);
   const altitude = Number(value("altitudeFt") || 0);
   const weight = Number(value("weightLbs") || 0);
-  const intakeRate = Number(value("intakeRate") || 0);
 
   if (nextSystem === "si") {
     if (state.tempF) state.tempF.value = String(Math.round(fToC(temp)));
     if (state.dewPointF) state.dewPointF.value = String(Math.round(fToC(dew)));
     if (state.altitudeFt) state.altitudeFt.value = String(Math.round(ftToM(altitude)));
     if (state.weightLbs) state.weightLbs.value = String(Math.round(lbsToKg(weight)));
-    if (state.intakeRate) state.intakeRate.value = String(Math.round(ozToMl(intakeRate)));
   } else {
     if (state.tempF) state.tempF.value = String(Math.round(cToF(temp)));
     if (state.dewPointF) state.dewPointF.value = String(Math.round(cToF(dew)));
     if (state.altitudeFt) state.altitudeFt.value = String(Math.round(mToFt(altitude)));
     if (state.weightLbs) state.weightLbs.value = String(Math.round(kgToLbs(weight)));
-    if (state.intakeRate) state.intakeRate.value = String((mlToOz(intakeRate)).toFixed(1));
   }
 
   setInputConstraintsForUnitSystem(nextSystem);
+}
+
+function getWeightLbsCanonical() {
+  const raw = Number(value("weightLbs") || 0);
+  return unitSystem() === "si" ? kgToLbs(raw) : raw;
+}
+
+function getTempFCanonical() {
+  const raw = Number(value("tempF") || 0);
+  return unitSystem() === "si" ? cToF(raw) : raw;
+}
+
+function getDewPointFCanonical() {
+  const raw = Number(value("dewPointF") || 0);
+  return unitSystem() === "si" ? cToF(raw) : raw;
+}
+
+function getAltitudeFtCanonical() {
+  const raw = Number(value("altitudeFt") || 0);
+  return unitSystem() === "si" ? mToFt(raw) : raw;
 }
 
 function extractFirstFinite(values) {
@@ -232,33 +203,24 @@ function extractFirstFinite(values) {
 async function fetchWeatherByCityName(cityName) {
   const raw = String(cityName || "").trim();
   const query = raw.split(",")[0].trim();
-  if (!query) {
-    throw new Error("Please enter a city name first.");
-  }
+  if (!query) throw new Error("Please enter a city name first.");
 
   const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
   const geoRes = await fetch(geoUrl);
-  if (!geoRes.ok) {
-    throw new Error("Could not resolve city location right now.");
-  }
+  if (!geoRes.ok) throw new Error("Could not resolve city location right now.");
 
   const geo = await geoRes.json();
   const place = Array.isArray(geo.results) ? geo.results[0] : null;
-  if (!place) {
-    throw new Error(`No city match found for "${query}".`);
-  }
+  if (!place) throw new Error(`No city match found for "${query}".`);
 
   const weatherUrl =
     `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
     `&current=temperature_2m,relative_humidity_2m,dew_point_2m` +
-    `&current_weather=true` +
-    `&hourly=temperature_2m,relative_humidity_2m,dew_point_2m` +
+    `&current_weather=true&hourly=temperature_2m,relative_humidity_2m,dew_point_2m` +
     `&temperature_unit=fahrenheit`;
 
   const weatherRes = await fetch(weatherUrl);
-  if (!weatherRes.ok) {
-    throw new Error("Weather service unavailable. Please try again.");
-  }
+  if (!weatherRes.ok) throw new Error("Weather service unavailable. Please try again.");
 
   const weather = await weatherRes.json();
   if (!weather.current && !weather.current_weather && !weather.hourly) {
@@ -290,34 +252,23 @@ async function populateEnvironmentalFactorsFromCity() {
     weatherStatus(`Looking up current weather for ${city}...`);
 
     const data = await fetchWeatherByCityName(city);
+    if (state.cityName && data.normalizedQuery) state.cityName.value = data.normalizedQuery;
 
-    if (state.cityName && data.normalizedQuery) {
-      state.cityName.value = data.normalizedQuery;
-    }
-
-    const selectedUnits = unitSystem();
-
+    const units = unitSystem();
     const updates = [
-      setFieldIfFinite("tempF", data.tempF, (v) => (selectedUnits === "si" ? Math.round(fToC(v)) : Math.round(v))),
+      setFieldIfFinite("tempF", data.tempF, (v) => (units === "si" ? Math.round(fToC(v)) : Math.round(v))),
       setFieldIfFinite("humidity", data.humidity, (v) => Math.round(v)),
-      setFieldIfFinite("dewPointF", data.dewPointF, (v) => (selectedUnits === "si" ? Math.round(fToC(v)) : Math.round(v))),
-      setFieldIfFinite("altitudeFt", data.altitudeFt, (v) =>
-        selectedUnits === "si" ? Math.round(ftToM(v) / 50) * 50 : Math.round(v / 100) * 100
-      ),
+      setFieldIfFinite("dewPointF", data.dewPointF, (v) => (units === "si" ? Math.round(fToC(v)) : Math.round(v))),
+      setFieldIfFinite("altitudeFt", data.altitudeFt, (v) => (units === "si" ? Math.round(ftToM(v) / 50) * 50 : Math.round(v / 100) * 100)),
     ];
 
-    if (weatherLocationEl) {
-      weatherLocationEl.textContent = `Resolved: ${data.cityLabel}`;
-    }
-
+    if (weatherLocationEl) weatherLocationEl.textContent = `Resolved: ${data.cityLabel}`;
     render();
+
     if (updates.some(Boolean)) {
       weatherStatus(`Weather loaded for ${data.cityLabel}. Environmental factors updated.`);
     } else {
-      weatherStatus(
-        `City resolved (${data.cityLabel}), but weather fields were incomplete from provider. Try again in a moment.`,
-        true
-      );
+      weatherStatus(`City resolved (${data.cityLabel}), but weather fields were incomplete. Try again soon.`, true);
     }
   } catch (err) {
     weatherStatus(err?.message || "Failed to load city weather.", true);
@@ -332,7 +283,7 @@ function calculateHeatIndex(tempF, humidity) {
 
   if (t < 80 || rh < 40) return t;
 
-  const hi =
+  return (
     -42.379 +
     2.04901523 * t +
     10.14333127 * rh -
@@ -341,9 +292,8 @@ function calculateHeatIndex(tempF, humidity) {
     0.05481717 * rh * rh +
     0.00122874 * t * t * rh +
     0.00085282 * t * rh * rh -
-    0.00000199 * t * t * rh * rh;
-
-  return hi;
+    0.00000199 * t * t * rh * rh
+  );
 }
 
 function calculateEvaporativeDemand(factors) {
@@ -361,11 +311,7 @@ function calculateEvaporativeDemand(factors) {
   const heatIndex = calculateHeatIndex(factors.tempF, factors.humidity);
   if (heatIndex > HIGH_DEMAND_HEAT_INDEX) multiplier += 0.15;
 
-  return {
-    multiplier,
-    heatIndex,
-    highDemand: heatIndex > HIGH_DEMAND_HEAT_INDEX,
-  };
+  return { multiplier, heatIndex, highDemand: heatIndex > HIGH_DEMAND_HEAT_INDEX };
 }
 
 function calculateHydrationBenchmark(weightLbs, ageYears, factors, hoursSinceIntake) {
@@ -373,46 +319,32 @@ function calculateHydrationBenchmark(weightLbs, ageYears, factors, hoursSinceInt
   const ageAdjustmentOz = Number(ageYears) >= 55 ? 4 : Number(ageYears) < 18 ? -2 : 0;
   const adjustedBaseOz = Math.max(0, baseOz + ageAdjustmentOz);
 
-  const sexAssignedAtBirth = String(factors.sexAssignedAtBirth || "unspecified");
-  const sexMultiplierMap = {
-    female: 0.97,
-    male: 1.03,
-    intersex: 1.0,
-    unspecified: 1.0,
-  };
-  const sexMultiplier = sexMultiplierMap[sexAssignedAtBirth] ?? 1.0;
+  const sexMultiplier = ({ female: 0.97, male: 1.03, intersex: 1.0, unspecified: 1.0 })[String(factors.sexAssignedAtBirth || "unspecified")] ?? 1.0;
+  const acclMultiplier = ({ low: 1.08, moderate: 1.03, high: 0.95 })[String(factors.acclimatizationLevel || "moderate")] ?? 1.0;
 
-  const acclimatizationLevel = String(factors.acclimatizationLevel || "moderate");
-  const acclimatizationMultiplierMap = {
-    low: 1.08,
-    moderate: 1.03,
-    high: 0.95,
-  };
-  const acclimatizationMultiplier = acclimatizationMultiplierMap[acclimatizationLevel] ?? 1.0;
-
-  const evaporative = calculateEvaporativeDemand(factors);
+  const evap = calculateEvaporativeDemand(factors);
   const metabolicMultiplier = 1 + clamp((Number(hoursSinceIntake) || 0) * 0.02, 0, 0.24);
-  const benchmarkOz =
-    adjustedBaseOz *
-    sexMultiplier *
-    acclimatizationMultiplier *
-    evaporative.multiplier *
-    metabolicMultiplier;
+
+  const idealDailyOz = adjustedBaseOz * sexMultiplier * acclMultiplier * evap.multiplier;
+  const idealHourlyOz = idealDailyOz / 24;
+  const windowTargetOz = idealHourlyOz * Math.max(1, Number(hoursSinceIntake) || 1);
+
+  const activityBaseLossMlPerHour = ({ sedentary: 55, moderate: 95, active: 150 })[String(factors.activityLevel || "sedentary")] ?? 55;
+  const dehydrationRateMlPerHour = activityBaseLossMlPerHour * evap.multiplier;
 
   return {
-    baseOz: adjustedBaseOz,
-    benchmarkOz,
-    evaporativeMultiplier: evaporative.multiplier,
+    idealDailyOz,
+    idealHourlyOz,
+    windowTargetOz,
+    dehydrationRateMlPerHour,
+    evaporativeMultiplier: evap.multiplier,
+    heatIndex: evap.heatIndex,
+    highDemand: evap.highDemand,
     metabolicMultiplier,
-    heatIndex: evaporative.heatIndex,
-    highDemand: evaporative.highDemand,
   };
 }
 
 function buildModeModels() {
-  const fluidType = value("fluidType") || "water";
-  const fluidProfile = FLUID_COEFFICIENTS[fluidType] || FLUID_COEFFICIENTS.water;
-
   const factors = {
     tempF: getTempFCanonical(),
     humidity: Number(value("humidity") || 0),
@@ -424,51 +356,43 @@ function buildModeModels() {
   };
 
   const hoursSinceIntake = Number(value("hoursSinceIntake") || 0);
-  const userWeightLbs = getWeightLbsCanonical();
-  const userAgeYears = Number(value("ageYears") || 0);
-  const intakeRateMlPerHour = getIntakeRateMlPerHourCanonical();
-  const intakeVolumeMl = intakeRateMlPerHour * Math.max(0, hoursSinceIntake);
+  const profile = calculateHydrationBenchmark(getWeightLbsCanonical(), Number(value("ageYears") || 0), factors, hoursSinceIntake);
 
-  const userBenchmark = calculateHydrationBenchmark(userWeightLbs, userAgeYears, factors, hoursSinceIntake);
-
-  const userIntakeOz = mlToOz(intakeVolumeMl) * fluidProfile.coefficient;
-  const electrolyteScenarioOz = mlToOz(intakeVolumeMl) * FLUID_COEFFICIENTS.electrolyte.coefficient;
+  const dryScenarioRate = profile.dehydrationRateMlPerHour * 1.2;
 
   return [
     {
-      id: "user_intake",
-      name: `User Intake (${fluidProfile.label})`,
-      benchmarkOz: userBenchmark.benchmarkOz,
-      effectiveIntakeOz: userIntakeOz,
-      heatIndex: userBenchmark.heatIndex,
-      highDemand: userBenchmark.highDemand,
-      evaporativeMultiplier: userBenchmark.evaporativeMultiplier,
-      metabolicMultiplier: userBenchmark.metabolicMultiplier,
-      tags: ["User", "Current Fluid"],
+      id: "ideal_intake",
+      name: "Estimated Ideal Intake",
+      idealDailyOz: profile.idealDailyOz,
+      windowTargetOz: profile.windowTargetOz,
+      dehydrationRateMlPerHour: profile.dehydrationRateMlPerHour,
+      evaporativeMultiplier: profile.evaporativeMultiplier,
+      heatIndex: profile.heatIndex,
+      highDemand: profile.highDemand,
     },
     {
-      id: "electrolyte_scenario",
-      name: "Electrolyte Scenario",
-      benchmarkOz: userBenchmark.benchmarkOz,
-      effectiveIntakeOz: electrolyteScenarioOz,
-      heatIndex: userBenchmark.heatIndex,
-      highDemand: userBenchmark.highDemand,
-      evaporativeMultiplier: userBenchmark.evaporativeMultiplier,
-      metabolicMultiplier: userBenchmark.metabolicMultiplier,
-      tags: ["Alternate", "Fluid Coefficient"],
+      id: "dehydration_outlook",
+      name: "Dehydration Outlook",
+      idealDailyOz: profile.idealDailyOz,
+      windowTargetOz: profile.windowTargetOz,
+      dehydrationRateMlPerHour: dryScenarioRate,
+      evaporativeMultiplier: profile.evaporativeMultiplier,
+      heatIndex: profile.heatIndex,
+      highDemand: profile.highDemand,
     },
   ];
 }
 
 function evaluateMode(mode) {
-  const hydrationGapOz = Math.max(0, mode.benchmarkOz - mode.effectiveIntakeOz);
-  const coveragePct = mode.benchmarkOz > 0 ? clamp((mode.effectiveIntakeOz / mode.benchmarkOz) * 100, 0, 200) : 0;
-  const riskScore = clamp(hydrationGapOz * 4 + (mode.highDemand ? 15 : 0), 0, 100);
+  const dehydrationRateOzPerHour = mlToOz(mode.dehydrationRateMlPerHour);
+  const projectedWindowLossOz = dehydrationRateOzPerHour * Math.max(1, Number(value("hoursSinceIntake") || 1));
+  const riskScore = clamp(projectedWindowLossOz * 3 + (mode.highDemand ? 15 : 0), 0, 100);
 
   return {
     ...mode,
-    hydrationGapOz,
-    coveragePct,
+    dehydrationRateOzPerHour,
+    projectedWindowLossOz,
     riskScore,
   };
 }
@@ -482,50 +406,75 @@ function winnerIdMax(results, key) {
 }
 
 function buildCard(result, flags, index) {
+  const units = unitSystem();
+  const rateLabel = units === "si" ? `${num(result.dehydrationRateMlPerHour, 0)} ml/h` : `${num(result.dehydrationRateOzPerHour, 1)} oz/h`;
+  const dailyLabel = units === "si" ? `${num(ozToMl(result.idealDailyOz), 0)} ml/day` : `${num(result.idealDailyOz, 1)} oz/day`;
+  const windowLabel = units === "si" ? `${num(ozToMl(result.windowTargetOz), 0)} ml` : `${num(result.windowTargetOz, 1)} oz`;
+
   const card = document.createElement("article");
   card.className = "card";
   card.style.animationDelay = `${0.05 * index}s`;
 
   const pills = [];
   if (result.highDemand) pills.push('<span class="pill best-time">High Demand</span>');
-  if (flags.bestCoverage === result.id) pills.push('<span class="pill best-comfort">Best Coverage</span>');
-  if (flags.lowestGap === result.id) pills.push('<span class="pill best-cost">Lowest Gap</span>');
-  if (flags.lowestRisk === result.id) pills.push('<span class="pill best-co2">Lowest Risk</span>');
+  if (flags.lowestRisk === result.id) pills.push('<span class="pill best-co2">Lower Risk</span>');
+  if (flags.highestRate === result.id) pills.push('<span class="pill best-cost">Higher Dehydration Rate</span>');
 
   card.innerHTML = `
     <h4>${result.name}</h4>
     <div>${pills.join(" ")}</div>
-    <p class="metric">Benchmark target: <strong>${num(result.benchmarkOz, 1)} oz</strong></p>
-    <p class="metric">Effective intake: <strong>${num(result.effectiveIntakeOz, 1)} oz</strong></p>
-    <p class="metric">Hydration gap: <strong>${num(result.hydrationGapOz, 1)} oz</strong></p>
-    <p class="metric">Coverage: <strong>${num(result.coveragePct, 0)}%</strong></p>
-    <p class="metric">Risk score: <strong>${num(result.riskScore, 0)}</strong></p>
+    <p class="metric">Ideal daily intake: <strong>${dailyLabel}</strong></p>
+    <p class="metric">Recommended window intake: <strong>${windowLabel}</strong></p>
+    <p class="metric">Estimated dehydration rate: <strong>${rateLabel}</strong></p>
+    <p class="metric">Projected window fluid loss: <strong>${units === "si" ? `${num(ozToMl(result.projectedWindowLossOz), 0)} ml` : `${num(result.projectedWindowLossOz, 1)} oz`}</strong></p>
+    <p class="metric">Dehydration risk index: <strong>${num(result.riskScore, 0)}</strong></p>
   `;
 
   return card;
 }
 
 function normalizedBars(results) {
+  const units = unitSystem();
   const dims = [
-    { key: "benchmarkOz", label: "Benchmark", cls: "cost", suffix: "oz" },
-    { key: "effectiveIntakeOz", label: "Effective Intake", cls: "co2", suffix: "oz" },
-    { key: "hydrationGapOz", label: "Gap", cls: "time", suffix: "oz" },
+    {
+      key: "idealDailyOz",
+      label: "Ideal Daily Intake",
+      cls: "cost",
+      suffix: units === "si" ? "ml/day" : "oz/day",
+      mapValue: (r) => (units === "si" ? ozToMl(r.idealDailyOz) : r.idealDailyOz),
+    },
+    {
+      key: "dehydrationRateOzPerHour",
+      label: "Dehydration Rate",
+      cls: "co2",
+      suffix: units === "si" ? "ml/h" : "oz/h",
+      mapValue: (r) => (units === "si" ? r.dehydrationRateMlPerHour : r.dehydrationRateOzPerHour),
+    },
+    {
+      key: "projectedWindowLossOz",
+      label: "Projected Window Loss",
+      cls: "time",
+      suffix: units === "si" ? "ml" : "oz",
+      mapValue: (r) => (units === "si" ? ozToMl(r.projectedWindowLossOz) : r.projectedWindowLossOz),
+    },
   ];
 
   chartEl.innerHTML = "";
 
   dims.forEach((dim) => {
-    const max = Math.max(...results.map((r) => r[dim.key]), 1);
+    const values = results.map((r) => dim.mapValue(r));
+    const max = Math.max(...values, 1);
 
     results.forEach((r) => {
+      const v = dim.mapValue(r);
       const row = document.createElement("div");
       row.className = "bar-row";
-      const pct = (r[dim.key] / max) * 100;
+      const pct = (v / max) * 100;
 
       row.innerHTML = `
         <span>${r.name}</span>
         <div class="bar-wrap"><div class="bar ${dim.cls}" style="width:${pct}%;"></div></div>
-        <span>${dim.label}: ${num(r[dim.key], 1)} ${dim.suffix}</span>
+        <span>${dim.label}: ${num(v, 1)} ${dim.suffix}</span>
       `;
       chartEl.appendChild(row);
     });
@@ -533,26 +482,31 @@ function normalizedBars(results) {
 }
 
 function buildInsights(results) {
-  const user = results.find((r) => r.id === "user_intake") || results[0];
-  const electrolyte = results.find((r) => r.id === "electrolyte_scenario") || results[0];
+  const ideal = results.find((r) => r.id === "ideal_intake") || results[0];
+  const outlook = results.find((r) => r.id === "dehydration_outlook") || results[0];
+  const units = unitSystem();
 
   const insights = [];
-
-  if (user.highDemand) {
-    insights.push(
-      `High Demand alert: heat index is ${num(user.heatIndex, 1)}°F, so hydration targets are elevated for current conditions.`
-    );
+  if (ideal.highDemand) {
+    insights.push(`High Demand alert: heat index is ${num(ideal.heatIndex, 1)}°F and dehydration pressure is elevated.`);
   } else {
-    insights.push(`Heat index is ${num(user.heatIndex, 1)}°F; demand remains below the High Demand trigger.`);
+    insights.push(`Heat index is ${num(ideal.heatIndex, 1)}°F; demand remains below the High Demand trigger.`);
   }
 
   insights.push(
-    `User benchmark is ${num(user.benchmarkOz, 1)} oz with an estimated gap of ${num(user.hydrationGapOz, 1)} oz in the current metabolic window.`
+    units === "si"
+      ? `Estimated ideal daily intake is ${num(ozToMl(ideal.idealDailyOz), 0)} ml/day, with ${num(ozToMl(ideal.windowTargetOz), 0)} ml recommended for the current window.`
+      : `Estimated ideal daily intake is ${num(ideal.idealDailyOz, 1)} oz/day, with ${num(ideal.windowTargetOz, 1)} oz recommended for the current window.`
   );
 
-  const electrolyteGain = electrolyte.effectiveIntakeOz - user.effectiveIntakeOz;
   insights.push(
-    `Switching to an electrolyte coefficient at the same volume would raise effective intake by ${num(electrolyteGain, 1)} oz.`
+    units === "si"
+      ? `Estimated dehydration rate is ${num(ideal.dehydrationRateMlPerHour, 0)} ml/h currently and may approach ${num(outlook.dehydrationRateMlPerHour, 0)} ml/h in drier/hotter stress.`
+      : `Estimated dehydration rate is ${num(ideal.dehydrationRateOzPerHour, 1)} oz/h currently and may approach ${num(outlook.dehydrationRateOzPerHour, 1)} oz/h in drier/hotter stress.`
+  );
+
+  insights.push(
+    `Evaporative burden multiplier is ${num(ideal.evaporativeMultiplier, 2)}× based on your climate and activity factors.`
   );
 
   return insights;
@@ -572,7 +526,6 @@ function updateOutputLabels() {
       dewPointF: units === "si" ? `${num(v, 0)} °C` : `${num(v, 0)} °F`,
       altitudeFt: units === "si" ? `${num(v, 0)} m` : `${num(v, 0)} ft`,
       hoursSinceIntake: `${num(v, 1)} h`,
-      intakeRate: units === "si" ? `${num(v, 0)} ml/h` : `${num(v, 1)} oz/h`,
     };
 
     node.textContent = unitMap[id] ?? String(v);
@@ -581,11 +534,9 @@ function updateOutputLabels() {
 
 function render() {
   const results = buildModeModels().map((mode) => evaluateMode(mode));
-
   const flags = {
-    bestCoverage: winnerIdMax(results, "coveragePct"),
-    lowestGap: winnerId(results, "hydrationGapOz"),
     lowestRisk: winnerId(results, "riskScore"),
+    highestRate: winnerIdMax(results, "dehydrationRateOzPerHour"),
   };
 
   cardsEl.innerHTML = "";
@@ -593,23 +544,18 @@ function render() {
 
   normalizedBars(results);
 
-  const insights = buildInsights(results);
-  insightListEl.innerHTML = insights.map((msg) => `<li>${msg}</li>`).join("");
+  insightListEl.innerHTML = buildInsights(results).map((msg) => `<li>${msg}</li>`).join("");
   ideaListEl.innerHTML = comparisonIdeas.map((msg) => `<li>${msg}</li>`).join("");
 
-  const lead = results.find((r) => r.id === "user_intake") || results[0];
+  const lead = results.find((r) => r.id === "ideal_intake") || results[0];
   const units = unitSystem();
   const displayedHeatIndex = units === "si" ? fToC(lead.heatIndex) : lead.heatIndex;
   effectiveHeatIndexEl.textContent = units === "si" ? `${num(displayedHeatIndex, 1)} °C` : `${num(displayedHeatIndex, 1)} °F`;
   effectiveEvapMultiplierEl.textContent = `${num(lead.evaporativeMultiplier, 2)}×`;
 
   if (tripEstimateEl) {
-    const highDemandText = lead.highDemand ? "YES" : "No";
-    const thresholdText =
-      units === "si"
-        ? `${num(fToC(HIGH_DEMAND_HEAT_INDEX), 1)}°C`
-        : `${num(HIGH_DEMAND_HEAT_INDEX, 1)}°F`;
-    tripEstimateEl.innerHTML = `<strong>High Demand:</strong> ${highDemandText} <span class="muted">(threshold: heat index > ${thresholdText})</span>`;
+    const thresholdText = units === "si" ? `${num(fToC(HIGH_DEMAND_HEAT_INDEX), 1)}°C` : `${num(HIGH_DEMAND_HEAT_INDEX, 1)}°F`;
+    tripEstimateEl.innerHTML = `<strong>High Demand:</strong> ${lead.highDemand ? "YES" : "No"} <span class="muted">(threshold: heat index > ${thresholdText})</span>`;
   }
 
   updateOutputLabels();
@@ -636,8 +582,6 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     dewPointF: "33",
     altitudeFt: "1086",
     hoursSinceIntake: "3",
-    intakeRate: "10.1",
-    fluidType: "water",
   };
 
   Object.entries(defaults).forEach(([id, val]) => {
@@ -648,7 +592,6 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   if (weatherStatusEl) weatherStatusEl.textContent = "";
 
   setInputConstraintsForUnitSystem("us");
-
   render();
 });
 
@@ -676,5 +619,4 @@ if (state.cityName) {
 }
 
 setInputConstraintsForUnitSystem(unitSystem());
-
 render();
