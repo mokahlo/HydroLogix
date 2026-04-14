@@ -1,5 +1,5 @@
 // Semantic versioning: major.minor.patch
-const APP_VERSION = "1.1.3";
+const APP_VERSION = "1.1.4";
 const HIGH_DEMAND_HEAT_INDEX = 105;
 const ROOM_TEMP_F = 72;
 const BASE_BREATHING_LOSS_OZ_PER_HOUR = 0.5;
@@ -645,7 +645,7 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   const defaults = {
     unitSystem: "us",
     cityName: "Phoenix",
-    weightLbs: "180",
+    weightLbs: "286",
     ageYears: "38",
     sexAssignedAtBirth: "female",
     acclimatizationLevel: "moderate",
