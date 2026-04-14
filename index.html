@@ -33,6 +33,15 @@
 
         <div class="control-grid">
           <label>
+            City name (weather source)
+            <input id="cityName" type="text" value="Phoenix, AZ" placeholder="e.g., Phoenix, AZ" />
+            <button id="loadWeatherBtn" type="button" class="estimate-btn">Auto-fill Weather by City</button>
+            <span class="hint">Browser-only lookup (no app server): fills temperature, humidity, dew point, and altitude.</span>
+            <span id="weatherLocation" class="muted"></span>
+            <span id="weatherStatus" class="muted"></span>
+          </label>
+
+          <label>
             User weight (lbs)
             <input id="weightLbs" type="number" min="60" max="400" step="1" value="180" />
             <span data-output="weightLbs"></span>

@@ -11,6 +11,7 @@ const FLUID_COEFFICIENTS = {
 const HIGH_DEMAND_HEAT_INDEX = 105;
 
 const ids = [
+  "cityName",
   "weightLbs",
   "ageYears",
   "activityLevel",
@@ -33,6 +34,9 @@ const tripEstimateEl = document.getElementById("tripEstimate");
 const effectiveHeatIndexEl = document.getElementById("effectiveHeatIndex");
 const effectiveEvapMultiplierEl = document.getElementById("effectiveEvapMultiplier");
 const appVersionEl = document.getElementById("appVersion");
+const weatherLocationEl = document.getElementById("weatherLocation");
+const weatherStatusEl = document.getElementById("weatherStatus");
+const loadWeatherBtn = document.getElementById("loadWeatherBtn");
 
 if (appVersionEl) {
   appVersionEl.textContent = `v${APP_VERSION}`;
@@ -64,6 +68,91 @@ function mlToOz(ml) {
 
 function clamp(valueToClamp, min, max) {
   return Math.max(min, Math.min(max, valueToClamp));
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function weatherStatus(message, isError = false) {
+  if (!weatherStatusEl) return;
+  const safe = escapeHtml(message);
+  weatherStatusEl.innerHTML = isError
+    ? `<span style="color:#ffb4b4;">${safe}</span>`
+    : safe;
+}
+
+async function fetchWeatherByCityName(cityName) {
+  const query = String(cityName || "").trim();
+  if (!query) {
+    throw new Error("Please enter a city name first.");
+  }
+
+  const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+  const geoRes = await fetch(geoUrl);
+  if (!geoRes.ok) {
+    throw new Error("Could not resolve city location right now.");
+  }
+
+  const geo = await geoRes.json();
+  const place = Array.isArray(geo.results) ? geo.results[0] : null;
+  if (!place) {
+    throw new Error(`No city match found for "${query}".`);
+  }
+
+  const weatherUrl =
+    `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
+    `&current=temperature_2m,relative_humidity_2m,dew_point_2m` +
+    `&temperature_unit=fahrenheit`;
+
+  const weatherRes = await fetch(weatherUrl);
+  if (!weatherRes.ok) {
+    throw new Error("Weather service unavailable. Please try again.");
+  }
+
+  const weather = await weatherRes.json();
+  if (!weather.current) {
+    throw new Error("Current weather data not available for this city.");
+  }
+
+  return {
+    cityLabel: [place.name, place.admin1, place.country_code].filter(Boolean).join(", "),
+    tempF: Number(weather.current.temperature_2m),
+    humidity: Number(weather.current.relative_humidity_2m),
+    dewPointF: Number(weather.current.dew_point_2m),
+    altitudeFt: Number(weather.elevation || place.elevation || 0) * 3.28084,
+  };
+}
+
+async function populateEnvironmentalFactorsFromCity() {
+  const city = value("cityName");
+  try {
+    if (loadWeatherBtn) loadWeatherBtn.disabled = true;
+    weatherStatus(`Looking up current weather for ${city}...`);
+
+    const data = await fetchWeatherByCityName(city);
+
+    if (state.tempF) state.tempF.value = String(Math.round(data.tempF));
+    if (state.humidity) state.humidity.value = String(Math.round(data.humidity));
+    if (state.dewPointF) state.dewPointF.value = String(Math.round(data.dewPointF));
+    if (state.altitudeFt) state.altitudeFt.value = String(Math.round(data.altitudeFt / 100) * 100);
+
+    if (weatherLocationEl) {
+      weatherLocationEl.textContent = `Resolved: ${data.cityLabel}`;
+    }
+
+    render();
+    weatherStatus(`Weather loaded for ${data.cityLabel}. Environmental factors updated.`);
+  } catch (err) {
+    weatherStatus(err.message || "Failed to load city weather.", true);
+  } finally {
+    if (loadWeatherBtn) loadWeatherBtn.disabled = false;
+  }
 }
 
 function calculateHeatIndex(tempF, humidity) {
@@ -354,6 +443,7 @@ ids.forEach((id) => {
 
 document.getElementById("resetBtn").addEventListener("click", () => {
   const defaults = {
+    cityName: "Phoenix, AZ",
     weightLbs: "180",
     ageYears: "38",
     activityLevel: "moderate",
@@ -371,7 +461,23 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     if (state[id]) state[id].value = val;
   });
 
+  if (weatherLocationEl) weatherLocationEl.textContent = "";
+  if (weatherStatusEl) weatherStatusEl.textContent = "";
+
   render();
 });
+
+if (loadWeatherBtn) {
+  loadWeatherBtn.addEventListener("click", populateEnvironmentalFactorsFromCity);
+}
+
+if (state.cityName) {
+  state.cityName.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      populateEnvironmentalFactorsFromCity();
+    }
+  });
+}
 
 render();

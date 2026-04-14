@@ -15,6 +15,7 @@ HydroLogix is an interactive hydration benchmarking app focused on hot, dry Sout
 - Applies a metabolic-window multiplier for hours since last intake
 - Triggers a **High Demand** state when heat index crosses threshold
 - Renders comparison cards, normalized bars, and actionable insights
+- Auto-fills environmental factors from **city name** in-browser (Open-Meteo geocoding + weather APIs)
 
 ## Core logic
 
@@ -31,6 +32,14 @@ Use hydration intake records shaped like:
 - `fluid_type_coefficient` (number)
 
 ## Run locally
+
+### Browser-only (no server hosting)
+
+1. Open `index.html` directly in your browser (or host as static files only).
+2. Enter a city and click **Auto-fill Weather by City**.
+3. Environmental factors are fetched client-side and applied to the hydration model.
+
+### Optional Node local server
 
 1. Install dependencies: `npm install`
 2. Start server: `npm start`
