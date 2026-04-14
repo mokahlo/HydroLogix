@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HydroLogix — Travel Mode Analysis Dashboard</title>
+    <title>HydroLogix — Hydration Benchmark Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,236 +16,112 @@
     <div class="bg-orb bg-orb-a"></div>
     <div class="bg-orb bg-orb-b"></div>
     <header class="hero">
-      <p class="eyebrow">Mode Shift Explorer <span id="appVersion" class="version-badge" title="Semantic versioning: major.minor.patch">v0.3.1</span></p>
-      <h1>Travel Mode Cost and Environment Dashboard</h1>
+      <p class="eyebrow">Hydration Benchmark <span id="appVersion" class="version-badge" title="Semantic versioning: major.minor.patch">v1.0.0</span></p>
+      <h1>HydroLogix: User Intake vs Peer Benchmark</h1>
       <p class="subhead">
-        Compare driving and flying across cost, carbon footprint, total time, and value-of-time. Tune seat class,
-        occupancy, deadhead, and operating assumptions to reveal when each mode wins.
+        Compare hydration intake against climate-adjusted benchmark needs for desert conditions.
+        Tune weight, temperature, humidity, metabolic window, and fluid type coefficients.
       </p>
     </header>
 
     <main class="layout">
       <section class="panel controls" aria-label="inputs">
         <div class="controls-header">
-          <h2>Scenario Inputs</h2>
+          <h2>Hydration Inputs</h2>
           <button id="resetBtn" class="reset-btn">Reset to Defaults</button>
         </div>
 
         <div class="control-grid">
           <label>
-            From (city / airport)
-            <input id="fromCity" type="text" list="airportsList" placeholder="City or IATA code (e.g., Seattle, SEA)" />
-            <span class="hint">Origin location for the trip. City name or airport code.</span>
-            <div class="airport-suggestions" id="fromSuggestions" aria-hidden="true"></div>
+            User weight (lbs)
+            <input id="weightLbs" type="number" min="60" max="400" step="1" value="180" />
+            <span data-output="weightLbs"></span>
+            <span class="hint">Baseline hydration starts at approximately 0.5 oz per lb body weight.</span>
           </label>
 
           <label>
-            To (city / airport)
-            <input id="toCity" type="text" list="airportsList" placeholder="City or IATA code (e.g., Phoenix, PHX)" />
-            <span class="hint">Destination location for the trip. City name or airport code.</span>
-            <div class="airport-suggestions" id="toSuggestions" aria-hidden="true"></div>
-          </label>
-
-          <datalist id="airportsList"></datalist>
-
-          <label>
-            Passengers
-            <input id="passengers" type="number" min="1" max="10" value="1" />
-            <span class="hint">Number of travelers sharing the estimate.</span>
+            User age (years)
+            <input id="ageYears" type="number" min="12" max="100" step="1" value="38" />
+            <span data-output="ageYears"></span>
+            <span class="hint">Age lightly adjusts baseline hydration need.</span>
           </label>
 
           <label>
-            Month of trip
-            <select id="tripMonth">
-              <option value="avg">Average (year-round)</option>
-              <option value="jan">January</option>
-              <option value="feb">February</option>
-              <option value="mar">March</option>
-              <option value="apr">April</option>
-              <option value="may">May</option>
-              <option value="jun">June</option>
-              <option value="jul">July</option>
-              <option value="aug">August</option>
-              <option value="sep">September</option>
-              <option value="oct">October</option>
-              <option value="nov">November</option>
-              <option value="dec">December</option>
+            Activity level
+            <select id="activityLevel">
+              <option value="sedentary">Sedentary</option>
+              <option value="moderate">Moderate</option>
+              <option value="active">Active</option>
             </select>
-            <span class="hint">Applies seasonal average adjustments to travel prices and travel times.</span>
+            <span class="hint">Higher activity increases evaporative demand.</span>
           </label>
 
           <label>
-            Trip distance (miles)
-            <input id="distanceMiles" type="number" min="0" step="1" value="600" />
-            <span data-output="distanceMiles"></span>
-            <span class="hint">One-way trip distance in miles.</span>
+            Temperature (°F)
+            <input id="tempF" type="range" min="60" max="125" step="1" value="104" />
+            <span data-output="tempF"></span>
+            <span class="hint">Phoenix heat can significantly increase hydration demand.</span>
           </label>
 
           <label>
-            <button id="getEstimateBtn" type="button" class="estimate-btn">Estimate Distance from Airports</button>
-            <span class="hint">Uses airport coordinates to calculate great-circle distance and update the scenario.</span>
+            Relative humidity (%)
+            <input id="humidity" type="range" min="5" max="80" step="1" value="14" />
+            <span data-output="humidity"></span>
+            <span class="hint">Very low humidity amplifies fluid loss.</span>
           </label>
 
           <label>
-            Flight seat type
-            <select id="seatType">
-              <option value="economy">Economy</option>
-              <option value="premium">Premium Economy</option>
-              <option value="business">Business</option>
+            Dew point (°F)
+            <input id="dewPointF" type="range" min="10" max="75" step="1" value="33" />
+            <span data-output="dewPointF"></span>
+            <span class="hint">Lower dew point indicates drier air and higher evaporative demand.</span>
+          </label>
+
+          <label>
+            Altitude (ft)
+            <input id="altitudeFt" type="range" min="0" max="9000" step="100" value="1086" />
+            <span data-output="altitudeFt"></span>
+            <span class="hint">Higher altitude adds mild hydration burden.</span>
+          </label>
+
+          <label>
+            Hours since last intake
+            <input id="hoursSinceIntake" type="range" min="0" max="12" step="0.5" value="3" />
+            <span data-output="hoursSinceIntake"></span>
+            <span class="hint">Longer metabolic window increases short-term recommended intake.</span>
+          </label>
+
+          <label>
+            Intake volume (ml)
+            <input id="intakeVolumeMl" type="number" min="0" max="5000" step="10" value="900" />
+            <span data-output="intakeVolumeMl"></span>
+            <span class="hint">Amount consumed in the active hydration window.</span>
+          </label>
+
+          <label>
+            Fluid type
+            <select id="fluidType">
+              <option value="water">Water (1.0)</option>
+              <option value="coffee">Coffee (0.8)</option>
+              <option value="electrolyte">Electrolytes (1.2)</option>
             </select>
-            <span class="hint">High-impact choice: seat class changes fare and climate footprint.</span>
+            <span class="hint">Coefficient adjusts effective hydration contribution.</span>
           </label>
 
           <label>
-            Gas vehicle type
-            <select id="vehicleType">
-              <option value="midsize">Midsize car — 28 mpg</option>
-              <option value="small">Small car — 35 mpg</option>
-              <option value="suv">SUV — 22 mpg</option>
-              <option value="hybrid">Hybrid — 45 mpg</option>
-            </select>
-            <span class="hint">Pick the gas-car comparison; EV is always shown as a constant benchmark.</span>
-          </label>
-
-          <label>
-            Airfare total ($)
-            <input id="airfareTotal" type="number" min="0" step="1" value="200" />
-            <span data-output="airfareTotal"></span>
-            <button id="estimateAirfareBtn" type="button" class="estimate-btn">Estimate Airfare by Distance</button>
-            <span class="hint">Enter total airfare for the whole party; dashboard results are normalized per person.</span>
-          </label>
-
-          <label>
-            Average Gas Price ($/gal)
-            <input id="gasPrice" type="number" min="0" step="0.01" value="3.90" />
-            <span data-output="gasPrice"></span>
-            <span class="hint">National average references (USD/gal): US ~$3.60, Canada ~$4.90, Mexico ~$4.70.</span>
+            Peer benchmark weight (lbs)
+            <input id="peerWeightLbs" type="number" min="60" max="400" step="1" value="170" />
+            <span data-output="peerWeightLbs"></span>
+            <span class="hint">Reference profile for comparison card.</span>
           </label>
         </div>
-
-        <details class="advanced-controls">
-          <summary>Advanced assumptions (optional)</summary>
-          <p class="advanced-intro">Fine-tune model behavior and edge-case assumptions. Most users can ignore this section.</p>
-
-          <h3>Trip Context</h3>
-          <div class="control-grid">
-            <label>
-              Departure date
-              <input id="departDate" type="date" />
-              <span class="hint">Optional travel context for planning notes.</span>
-            </label>
-
-            <label>
-              Return date (optional)
-              <input id="returnDate" type="date" />
-              <span class="hint">Optional round-trip planning context.</span>
-            </label>
-
-            <label>
-              Travel mode focus
-              <select id="travelMode">
-                <option value="flight">Flight</option>
-                <option value="drive">Drive</option>
-                <option value="train">Train</option>
-                <option value="bus">Bus</option>
-              </select>
-              <span class="hint">UI planning selector; comparison cards still show all modeled modes.</span>
-            </label>
-
-            <label>
-              Passenger average wage ($/hour)
-              <input id="passengerWage" type="range" min="10" max="220" step="1" value="35" />
-              <span data-output="passengerWage"></span>
-              <span class="hint">Used to convert travel time to generalized cost.</span>
-            </label>
-
-            <label>
-              Wage-to-time value factor (%)
-              <input id="wageTimeFactor" type="range" min="25" max="200" step="5" value="100" />
-              <span data-output="wageTimeFactor"></span>
-              <span class="hint">100% = leisure time valued at full wage.</span>
-            </label>
-          </div>
-
-          <h3>Energy & Emissions Assumptions</h3>
-          <div class="control-grid">
-            <label>
-              Private electricity price ($/kWh)
-              <input id="electricityPrice" type="range" min="0.08" max="0.4" step="0.01" value="0.14" />
-              <span data-output="electricityPrice"></span>
-              <span class="hint">Home charging rate for EV scenarios.</span>
-            </label>
-
-            <label>
-              Public charging price ($/kWh)
-              <input id="publicElectricityPrice" type="range" min="0.1" max="0.9" step="0.01" value="0.48" />
-              <span data-output="publicElectricityPrice"></span>
-              <span class="hint">Fast/public station charging rate.</span>
-            </label>
-
-            <label>
-              Public charging share (%)
-              <input id="publicChargeShare" type="range" min="0" max="100" step="5" value="40" />
-              <span data-output="publicChargeShare"></span>
-              <span class="hint">Percent of EV trip energy purchased on the road at public chargers; also adds charging time burden.</span>
-            </label>
-
-            <label>
-              Grid intensity (kg CO2/kWh)
-              <input id="gridIntensity" type="range" min="0.05" max="0.9" step="0.01" value="0.38" />
-              <span data-output="gridIntensity"></span>
-              <span class="hint">Regional electricity emissions factor.</span>
-            </label>
-          </div>
-
-          <h3>Drive Assumptions</h3>
-          <div class="control-grid">
-            <label>
-              Driving speed (mph)
-              <input id="driveSpeed" type="range" min="35" max="80" step="1" value="58" />
-              <span data-output="driveSpeed"></span>
-              <span class="hint">Average speed including typical stops.</span>
-            </label>
-
-            <label>
-              Tolls and parking ($/trip)
-              <input id="driveFixedCost" type="range" min="0" max="150" step="1" value="25" />
-              <span data-output="driveFixedCost"></span>
-              <span class="hint">One-time drive trip costs.</span>
-            </label>
-
-            <label>
-              Drive deadhead time (hours)
-              <input id="driveDeadheadHours" type="range" min="0" max="3" step="0.1" value="0.4" />
-              <span data-output="driveDeadheadHours"></span>
-              <span class="hint">Extra loading/parking/pickup time.</span>
-            </label>
-          </div>
-
-          <h3>Flight Assumptions</h3>
-          <div class="control-grid">
-            <label>
-              Airport process time (hours)
-              <input id="flightFixedTime" type="range" min="0.5" max="5" step="0.1" value="2.4" />
-              <span data-output="flightFixedTime"></span>
-              <span class="hint">Security, check-in, boarding, and arrival overhead.</span>
-            </label>
-
-            <label>
-              Flight CO2 intensity (kg CO2 / passenger-mile)
-              <input id="flightCo2PerMile" type="range" min="0.08" max="0.5" step="0.01" value="0.22" />
-              <span data-output="flightCo2PerMile"></span>
-              <span class="hint">Aircraft emissions factor for flight scenarios.</span>
-            </label>
-          </div>
-        </details>
       </section>
 
       <section class="panel outputs" aria-label="results">
-        <h2>Results at Current Distance (Per Person)</h2>
+        <h2>Hydration Results (Current Conditions)</h2>
         <div class="results-meta">
-          <p class="effective-vot">Value of time: <strong id="effectiveVot"></strong></p>
-          <p class="effective-vot">Flight effective fare/mi (per person): <strong id="effectiveFlightFare"></strong></p>
+          <p class="effective-vot">Heat index: <strong id="effectiveHeatIndex"></strong></p>
+          <p class="effective-vot">Evaporative multiplier: <strong id="effectiveEvapMultiplier"></strong></p>
         </div>
 
         <div id="tripEstimate" class="trip-estimate" aria-live="polite"></div>
@@ -254,19 +130,15 @@
 
         <div class="chart-area">
           <h3>Relative Comparison</h3>
-          <div id="barChart" class="bar-chart" role="img" aria-label="normalized comparison chart"></div>
+          <div id="barChart" class="bar-chart" role="img" aria-label="normalized hydration comparison chart"></div>
         </div>
 
         <div class="insights">
-          <h3>Break-Even & Insights</h3>
+          <h3>Hydration Insights</h3>
           <p class="insight-explainer">
-            <strong>Break-even:</strong> The break-even distance is the point where two travel modes
-            score the same on a given metric (cost, carbon, or the combined "generalized" cost).
-            If a break-even (for example ~300 miles) is shown, one mode tends to be preferable
-            below that distance and the other becomes preferable beyond it. "No positive
-            break-even" means one mode dominates across plausible trip distances.
-            <br/>All cost and carbon values are shown per person.
-            <br/>Generalized cost = monetary cost + (value-of-time × travel hours).
+            Benchmarks are climate-adjusted and include a metabolic window multiplier.
+            <br/>High Demand triggers when heat index crosses risk threshold.
+            <br/>Gap = benchmark target − effective intake.
           </p>
           <ul id="insightList"></ul>
         </div>
@@ -280,8 +152,7 @@
 
     <footer>
       <p>
-        Note: values are scenario estimates, not route-specific forecasts. Use this as a decision sandbox for policy,
-        planning, or personal travel choices.
+        Note: values are scenario estimates and should complement, not replace, medical guidance.
       </p>
       <p class="repo-link">Project: HydroLogix</p>
     </footer>

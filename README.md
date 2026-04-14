@@ -1,63 +1,45 @@
-# HydroLogix — Travel Mode Analysis Dashboard
+# HydroLogix — Hydration Benchmark Dashboard
 
-Repository: HydroLogix
+HydroLogix is an interactive hydration benchmarking app focused on hot, dry Southwest conditions.
 
-Interactive dashboard for exploring cost, emissions, and time trade-offs across travel modes.
+## What it does
 
-## What it covers
+- Compares **User Intake** vs **Peer Benchmark** and an **Electrolyte Scenario**
+- Calculates baseline hydration from weight and age
+- Applies environmental multipliers for:
+  - temperature
+  - humidity
+  - dew point
+  - altitude
+  - activity level
+- Applies a metabolic-window multiplier for hours since last intake
+- Triggers a **High Demand** state when heat index crosses threshold
+- Renders comparison cards, normalized bars, and actionable insights
 
-- Driving EV vs driving Hybrid vs driving SUV vs flying
-- Occupancy effects (for example SUV with 2 occupants)
-- Flight seat class impact (economy, premium economy, business)
-- Door-to-door deadhead time and airport process time
-- Value-of-time conversion into generalized travel cost
-- Break-even distances for Cost, Carbon, and Time across modes
+## Core logic
 
-## How to run
+- `calculateEvaporativeDemand(...)` isolates environmental burden logic
+- `calculateHydrationBenchmark(...)` computes top-level benchmark demand
+- `render()` orchestrates card/chart/insight updates
 
-1. Open `index.html` in your browser.
-2. Adjust controls to model your scenario.
-3. Review result cards and break-even insights.
+## Data model guidance
 
-### Airport distance estimator (client-side only)
+Use hydration intake records shaped like:
 
-The dashboard now computes trip distance directly in the browser using airport coordinates from `airports.json`.
+- `timestamp` (ISO-8601 string)
+- `volume_ml` (number)
+- `fluid_type_coefficient` (number)
 
-- No serverless API required.
-- No backend required.
-- Use the **From** and **To** airport fields and click **Estimate Distance from Airports**.
+## Run locally
 
-The calculated great-circle distance updates the trip distance slider and downstream cost/carbon/time comparisons.
+1. Install dependencies: `npm install`
+2. Start server: `npm start`
+3. Open: `http://localhost:3000`
 
-### Static hosting
+## Test
 
-This project is static-only and can be hosted on any static host (for example GitHub Pages).
+- `npm test`
 
-If you use a static host, ensure `airports.json` and `airports-small.json` are included in the published files.
+## Notes
 
-## Model notes
-
-- Driving costs and emissions are allocated per traveler using occupancy.
-- Flight fare and flight emissions scale with seat type multipliers.
-- Generalized cost is calculated as:
-
-  `generalized_cost = monetary_cost + value_of_time * travel_hours`
-
-- Break-even distances are solved as linear intersections between two mode equations.
-
-## Good experiments
-
-- EV solo vs flight economy at 300 to 1,200 miles
-- Hybrid solo vs flight economy for medium-haul trips
-- SUV with 2 vs flight economy under high gas prices
-- Business class flight vs EV with high value-of-time
-- Cleaner vs dirtier electric grid scenarios
-
-## Next characteristics to explore
-
-- Reliability risk (delay probability and expected delay cost)
-- Comfort score (seat quality, noise, personal space)
-- Luggage constraints (fees, oversize handling, packing friction)
-- First/last-mile burden (transfer count, parking search, curb wait)
-- Energy refuel risk (charger/fuel station queues and detours)
-- Risk-adjusted outcomes (average day vs worst-case travel day)
+This tool provides scenario guidance and is not medical advice.

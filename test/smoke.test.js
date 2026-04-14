@@ -89,7 +89,7 @@ test('serves dashboard HTML from root route', async (t) => {
   assert.equal(response.status, 200);
 
   const body = await response.text();
-  assert.match(body, /Travel Mode Cost and Environment Dashboard/i);
+  assert.match(body, /Hydration Benchmark Dashboard/i);
 });
 
 test('estimates distance for PHX to SJC', async (t) => {

@@ -1,70 +1,37 @@
-const seatProfiles = {
-  economy: { costMultiplier: 1, co2Multiplier: 1, comfortBase: 72, label: "Economy" },
-  premium: { costMultiplier: 1.45, co2Multiplier: 1.3, comfortBase: 79, label: "Premium Econ" },
-  business: { costMultiplier: 2.45, co2Multiplier: 1.9, comfortBase: 87, label: "Business" },
-};
-
 // Semantic versioning: major.minor.patch
 // major = breaking changes, minor = new features, patch = fixes.
-const APP_VERSION = "0.3.1";
+const APP_VERSION = "1.0.0";
 
-const MONTH_ADJUSTMENTS = {
-  avg: { label: "Average", driveCost: 1.0, driveTime: 1.0, flightFare: 1.0, flightTime: 1.0 },
-  jan: { label: "January", driveCost: 1.02, driveTime: 1.06, flightFare: 0.93, flightTime: 1.06 },
-  feb: { label: "February", driveCost: 1.01, driveTime: 1.04, flightFare: 0.92, flightTime: 1.04 },
-  mar: { label: "March", driveCost: 1.03, driveTime: 1.03, flightFare: 1.05, flightTime: 1.03 },
-  apr: { label: "April", driveCost: 1.0, driveTime: 1.0, flightFare: 0.99, flightTime: 1.0 },
-  may: { label: "May", driveCost: 1.01, driveTime: 1.0, flightFare: 1.03, flightTime: 1.0 },
-  jun: { label: "June", driveCost: 1.03, driveTime: 1.05, flightFare: 1.12, flightTime: 1.05 },
-  jul: { label: "July", driveCost: 1.05, driveTime: 1.09, flightFare: 1.18, flightTime: 1.08 },
-  aug: { label: "August", driveCost: 1.04, driveTime: 1.07, flightFare: 1.14, flightTime: 1.06 },
-  sep: { label: "September", driveCost: 1.0, driveTime: 1.0, flightFare: 0.97, flightTime: 1.0 },
-  oct: { label: "October", driveCost: 1.0, driveTime: 1.0, flightFare: 0.98, flightTime: 1.0 },
-  nov: { label: "November", driveCost: 1.02, driveTime: 1.05, flightFare: 1.1, flightTime: 1.05 },
-  dec: { label: "December", driveCost: 1.06, driveTime: 1.11, flightFare: 1.22, flightTime: 1.11 },
+const FLUID_COEFFICIENTS = {
+  water: { coefficient: 1.0, label: "Water" },
+  coffee: { coefficient: 0.8, label: "Coffee" },
+  electrolyte: { coefficient: 1.2, label: "Electrolytes" },
 };
 
-const DEFAULT_FLIGHT_SPEED = 500; // mph, used when no user input is provided
-const DEFAULT_DRIVE_SPEED = 58; // mph, typical average used when unknown
-const DEFAULT_FAST_CHARGE_POWER = 90; // kW, practical road-trip charging power
-const DEFAULT_CHARGE_SESSION_OVERHEAD = 0.17; // hours, plug-in / queue / payment / detour friction
-const EV_ROADTRIP_RANGE = 250; // miles between meaningful public fast-charge stops
-const AVG_SPEEDS = { train: 80, bus: 50, ferry: 30 };
-const CO2_PER_MILE = { train: 0.05, bus: 0.12, ferry: 0.04 };
+const HIGH_DEMAND_HEAT_INDEX = 105;
 
 const ids = [
-  "fromCity",
-  "toCity",
-  "tripMonth",
-  "departDate",
-  "returnDate",
-  "passengers",
-  "distanceMiles",
-  "passengerWage",
-  "wageTimeFactor",
-  "gasPrice",
-  "electricityPrice",
-  "publicElectricityPrice",
-  "publicChargeShare",
-  "gridIntensity",
-  "seatType",
-  "vehicleType",
-  "driveSpeed",
-  "driveFixedCost",
-  "driveDeadheadHours",
-  "airfareTotal",
-  "flightFixedTime",
-  "flightCo2PerMile",
+  "weightLbs",
+  "ageYears",
+  "activityLevel",
+  "tempF",
+  "humidity",
+  "dewPointF",
+  "altitudeFt",
+  "hoursSinceIntake",
+  "intakeVolumeMl",
+  "fluidType",
+  "peerWeightLbs",
 ];
 
 const state = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
-const tripEstimateEl = document.getElementById("tripEstimate");
 const cardsEl = document.getElementById("cards");
 const chartEl = document.getElementById("barChart");
 const insightListEl = document.getElementById("insightList");
 const ideaListEl = document.getElementById("ideaList");
-const effectiveVotEl = document.getElementById("effectiveVot");
-const effectiveFlightFareEl = document.getElementById("effectiveFlightFare");
+const tripEstimateEl = document.getElementById("tripEstimate");
+const effectiveHeatIndexEl = document.getElementById("effectiveHeatIndex");
+const effectiveEvapMultiplierEl = document.getElementById("effectiveEvapMultiplier");
 const appVersionEl = document.getElementById("appVersion");
 
 if (appVersionEl) {
@@ -72,269 +39,165 @@ if (appVersionEl) {
 }
 
 const comparisonIdeas = [
-  "Reliability risk: probability and expected delay costs from weather or congestion.",
-  "Comfort score: personal space, noise, and seat quality converted to utility points.",
-  "Luggage and gear penalty: baggage fees, oversize handling, or rooftop drag impacts.",
-  "First/last-mile complexity: transfers, rideshare dependency, and parking search time.",
-  "Charging or fueling resilience: station availability, queue time, and detour distance.",
-  "Total trip risk-adjusted cost: average plus worst-case 90th percentile travel day.",
+  "Track intake logs over rolling 24-hour windows for adherence trends.",
+  "Add sweat-rate estimation from activity intensity and ambient conditions.",
+  "Compare hydration gap trajectories for water vs electrolyte strategies.",
+  "Include overnight recovery and next-day carryover effects.",
+  "Model sodium replacement guidance alongside fluid intake.",
+  "Add alerting when repeated High Demand windows occur in a week.",
 ];
-
-// Airport lists: small subset for fast datalist load, and full list for fuzzy search (loaded lazily)
-let airportsSmall = [];
-let airportsFull = null;
-let airportsSmallLoaded = false;
-let airportsSmallLoadingPromise = null;
-let airportsFullLoaded = false;
-let airportsLoadingPromise = null;
-const SUGGESTION_MAX = 8;
-const suggestionDebounce = {};
-
-function getAirportSearchList() {
-  const merged = [...airportsSmall, ...(Array.isArray(airportsFull) ? airportsFull : [])];
-  const seen = new Set();
-  return merged.filter((airport) => {
-    const code = String(airport.code || '').toUpperCase();
-    if (!code || seen.has(code)) return false;
-    seen.add(code);
-    return true;
-  });
-}
-
-function haversine(lat1, lon1, lat2, lon2) {
-  const toRad = (v) => (v * Math.PI) / 180;
-  const R = 3958.8; // miles
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function resolveAirport(query, list) {
-  if (!query) return null;
-  const qRaw = String(query).trim();
-  if (!qRaw) return null;
-  const q = qRaw.toLowerCase();
-
-  // Prefer explicit code patterns before fuzzy matching names.
-  const upper = qRaw.toUpperCase();
-  const parenCodeMatch = upper.match(/\(([A-Z]{3})\)/);
-  if (parenCodeMatch) {
-    const code = parenCodeMatch[1].toLowerCase();
-    const found = list.find((a) => String(a.code || '').toLowerCase() === code);
-    if (found) return found;
-  }
-
-  if (/^[A-Za-z]{3}$/.test(qRaw)) {
-    const code = qRaw.toLowerCase();
-    const found = list.find((a) => String(a.code || '').toLowerCase() === code);
-    if (found) return found;
-  }
-
-  const tokenMatches = upper.match(/\b([A-Z]{3})\b/g) || [];
-  for (const token of tokenMatches) {
-    const code = token.toLowerCase();
-    const found = list.find((a) => String(a.code || '').toLowerCase() === code);
-    if (found) return found;
-  }
-
-  const exact = list.find((a) => String(a.code || '').toLowerCase() === q || String(a.name || '').toLowerCase() === q);
-  if (exact) return exact;
-
-  return list.find((a) => String(a.code || '').toLowerCase().includes(q) || String(a.name || '').toLowerCase().includes(q)) || null;
-}
-
-function estimateAverageAirfarePerPassenger(distanceMiles) {
-  const d = Math.max(0, Number(distanceMiles) || 0);
-  if (d <= 0) return 0;
-
-  // Simple piecewise curve: higher $/mile for short-haul, lower for longer trips.
-  let remaining = d;
-  let fare = 55;
-
-  const band1 = Math.min(remaining, 300);
-  fare += band1 * 0.32;
-  remaining -= band1;
-
-  const band2 = Math.min(Math.max(remaining, 0), 700);
-  fare += band2 * 0.22;
-  remaining -= band2;
-
-  if (remaining > 0) {
-    fare += remaining * 0.16;
-  }
-
-  return Math.max(89, Math.round(fare / 5) * 5);
-}
-
-function estimateAirfareFromDistance() {
-  const distance = Number(value("distanceMiles") || 0);
-  const passengers = Math.max(1, Number(value("passengers") || 1));
-  if (distance <= 0) {
-    if (tripEstimateEl) {
-      tripEstimateEl.textContent = "Set a valid trip distance before estimating airfare.";
-    }
-    return;
-  }
-
-  const baselinePerPassenger = estimateAverageAirfarePerPassenger(distance);
-  const baselineFare = Math.round(baselinePerPassenger * passengers);
-  if (state.airfareTotal) {
-    state.airfareTotal.value = String(baselineFare);
-  }
-
-  const seat = seatProfiles[value("seatType")] || seatProfiles.economy;
-  const effectiveSeatFare = baselineFare * seat.costMultiplier;
-  const effectiveSeatPerPassenger = effectiveSeatFare / passengers;
-  if (tripEstimateEl) {
-    tripEstimateEl.innerHTML =
-      `<strong>Estimated airfare set:</strong> ${money(baselineFare)} ` +
-      `<span class="muted">(distance-based baseline for ${passengers} passenger${passengers === 1 ? "" : "s"} ` +
-      `at ${num(distance, 0)} mi: ${money(baselinePerPassenger)} per passenger; ` +
-      `${seat.label} effective total: ${money(effectiveSeatFare)} ` +
-      `(${money(effectiveSeatPerPassenger)} per passenger))</span>`;
-  }
-
-  render();
-}
-
-function normalizeAirportInputValue(inputEl) {
-  if (!inputEl) return;
-  const sourceList = getAirportSearchList();
-  const match = resolveAirport(inputEl.value, sourceList);
-  if (match && /^[A-Za-z]{3}$/.test(String(inputEl.value || '').trim())) {
-    inputEl.value = `${match.name} (${match.code})`;
-  }
-}
 
 function value(id) {
   const input = state[id];
   if (!input) return null;
-  const t = input.type;
-  if (t === "select-one" || t === "text" || t === "date") {
-    return input.value;
-  }
+  if (input.type === "select-one" || input.type === "text") return input.value;
   return Number(input.value);
-}
-
-function money(v) {
-  return `$${v.toFixed(2)}`;
 }
 
 function num(v, digits = 2) {
   return Number(v).toFixed(digits);
 }
 
-function buildModeModels() {
-  const seat = seatProfiles[value("seatType")];
-  const gasPrice = value("gasPrice");
-  const privateElectricPrice = value("electricityPrice");
-  const publicElectricPrice = value("publicElectricityPrice");
-  const publicChargeShare = value("publicChargeShare") / 100;
-  const electricPrice = privateElectricPrice * (1 - publicChargeShare) + publicElectricPrice * publicChargeShare;
-  const gridIntensity = value("gridIntensity");
-  const selectedGasType = value("vehicleType") || "midsize";
-  const monthKey = value("tripMonth") || "avg";
-  const monthAdjustment = MONTH_ADJUSTMENTS[monthKey] || MONTH_ADJUSTMENTS.avg;
-  let driveSpeed = Number(value("driveSpeed"));
-  if (!driveSpeed || Number.isNaN(driveSpeed) || driveSpeed <= 0) {
-    driveSpeed = DEFAULT_DRIVE_SPEED;
-  }
-  const driveFixedCost = value("driveFixedCost");
-  const driveDeadhead = value("driveDeadheadHours");
-  const passengers = Math.max(1, Number(value("passengers") || 1));
-  const distance = Number(value("distanceMiles") || 0);
+function mlToOz(ml) {
+  return (Number(ml) || 0) * 0.033814;
+}
 
-  const vehicleProfiles = {
-    small: { kind: "gas", mpg: 35, comfortBase: 68, label: "Small car" },
-    midsize: { kind: "gas", mpg: 28, comfortBase: 71, label: "Midsize car" },
-    suv: { kind: "gas", mpg: 22, comfortBase: 75, label: "SUV" },
-    hybrid: { kind: "gas", mpg: 45, comfortBase: 73, label: "Hybrid" },
-    ev: { kind: "ev", kwhPerMile: 0.31, comfortBase: 76, label: "EV" },
+function clamp(valueToClamp, min, max) {
+  return Math.max(min, Math.min(max, valueToClamp));
+}
+
+function calculateHeatIndex(tempF, humidity) {
+  const t = Number(tempF) || 0;
+  const rh = Number(humidity) || 0;
+
+  if (t < 80 || rh < 40) return t;
+
+  const hi =
+    -42.379 +
+    2.04901523 * t +
+    10.14333127 * rh -
+    0.22475541 * t * rh -
+    0.00683783 * t * t -
+    0.05481717 * rh * rh +
+    0.00122874 * t * t * rh +
+    0.00085282 * t * rh * rh -
+    0.00000199 * t * t * rh * rh;
+
+  return hi;
+}
+
+function calculateEvaporativeDemand(factors) {
+  let multiplier = 1.0;
+
+  if (factors.tempF > 95) multiplier += 0.2;
+  if (factors.tempF > 100) multiplier += 0.12;
+  if (factors.humidity < 20) multiplier += 0.1;
+  if (factors.humidity < 15) multiplier += 0.1;
+  if (factors.dewPointF < 40) multiplier += 0.05;
+  if ((factors.altitudeFt || 0) > 4000) multiplier += 0.05;
+  if (factors.activityLevel === "moderate") multiplier += 0.1;
+  if (factors.activityLevel === "active") multiplier += 0.2;
+
+  const heatIndex = calculateHeatIndex(factors.tempF, factors.humidity);
+  if (heatIndex > HIGH_DEMAND_HEAT_INDEX) multiplier += 0.15;
+
+  return {
+    multiplier,
+    heatIndex,
+    highDemand: heatIndex > HIGH_DEMAND_HEAT_INDEX,
+  };
+}
+
+function calculateHydrationBenchmark(weightLbs, ageYears, factors, hoursSinceIntake) {
+  const baseOz = (Number(weightLbs) || 0) * 0.5;
+  const ageAdjustmentOz = Number(ageYears) >= 55 ? 4 : Number(ageYears) < 18 ? -2 : 0;
+  const adjustedBaseOz = Math.max(0, baseOz + ageAdjustmentOz);
+
+  const evaporative = calculateEvaporativeDemand(factors);
+  const metabolicMultiplier = 1 + clamp((Number(hoursSinceIntake) || 0) * 0.02, 0, 0.24);
+  const benchmarkOz = adjustedBaseOz * evaporative.multiplier * metabolicMultiplier;
+
+  return {
+    baseOz: adjustedBaseOz,
+    benchmarkOz,
+    evaporativeMultiplier: evaporative.multiplier,
+    metabolicMultiplier,
+    heatIndex: evaporative.heatIndex,
+    highDemand: evaporative.highDemand,
+  };
+}
+
+function buildModeModels() {
+  const fluidType = value("fluidType") || "water";
+  const fluidProfile = FLUID_COEFFICIENTS[fluidType] || FLUID_COEFFICIENTS.water;
+
+  const factors = {
+    tempF: Number(value("tempF") || 0),
+    humidity: Number(value("humidity") || 0),
+    dewPointF: Number(value("dewPointF") || 0),
+    activityLevel: value("activityLevel") || "sedentary",
+    altitudeFt: Number(value("altitudeFt") || 0),
   };
 
-  const hoursPerMileDrive = 1 / driveSpeed;
-  const selectedGasProfile = vehicleProfiles[selectedGasType] && vehicleProfiles[selectedGasType].kind === "gas"
-    ? vehicleProfiles[selectedGasType]
-    : vehicleProfiles.midsize;
+  const hoursSinceIntake = Number(value("hoursSinceIntake") || 0);
+  const userWeightLbs = Number(value("weightLbs") || 0);
+  const peerWeightLbs = Number(value("peerWeightLbs") || 0);
+  const userAgeYears = Number(value("ageYears") || 0);
+  const intakeVolumeMl = Number(value("intakeVolumeMl") || 0);
 
-  function buildDriveMode(id, profile) {
-    let driveCostPerMile = 0;
-    let driveCo2PerMile = 0;
-    let driveChargeHours = 0;
+  const userBenchmark = calculateHydrationBenchmark(userWeightLbs, userAgeYears, factors, hoursSinceIntake);
+  const peerBenchmark = calculateHydrationBenchmark(peerWeightLbs, 35, factors, hoursSinceIntake);
 
-    if (profile.kind === "ev") {
-      driveCostPerMile = ((profile.kwhPerMile * electricPrice) / passengers) * monthAdjustment.driveCost;
-      driveCo2PerMile = (profile.kwhPerMile * gridIntensity) / passengers;
-
-      const publicMiles = distance * publicChargeShare;
-      const publicChargingEnergy = publicMiles * profile.kwhPerMile;
-      const chargingSessions = publicMiles > 0 ? Math.max(1, Math.ceil(publicMiles / EV_ROADTRIP_RANGE)) : 0;
-      driveChargeHours = (publicChargingEnergy / DEFAULT_FAST_CHARGE_POWER + chargingSessions * DEFAULT_CHARGE_SESSION_OVERHEAD) * monthAdjustment.driveTime;
-    } else {
-      driveCostPerMile = ((gasPrice / profile.mpg) / passengers) * monthAdjustment.driveCost;
-      driveCo2PerMile = (8.887 / profile.mpg) / passengers;
-    }
-
-    return {
-      id,
-      name: `Drive ${profile.label} (${passengers} occ.)`,
-      tags: ["Drive", profile.kind === "ev" ? "Electric" : "Gas"],
-      fixedCost: (driveFixedCost / passengers) * monthAdjustment.driveCost,
-      costPerMile: driveCostPerMile,
-      fixedTime: driveDeadhead * monthAdjustment.driveTime + driveChargeHours,
-      hoursPerMile: hoursPerMileDrive * monthAdjustment.driveTime,
-      fixedCo2: 0,
-      co2PerMile: driveCo2PerMile,
-      comfortBase: profile.comfortBase,
-      chargeHours: driveChargeHours,
-    };
-  }
-
-  const airfareTotal = Number(value("airfareTotal") || 0);
-  const flightFixedTime = value("flightFixedTime");
-  const flightCo2PerMile = value("flightCo2PerMile");
+  const userIntakeOz = mlToOz(intakeVolumeMl) * fluidProfile.coefficient;
+  const electrolyteScenarioOz = mlToOz(intakeVolumeMl) * FLUID_COEFFICIENTS.electrolyte.coefficient;
 
   return [
-    buildDriveMode("drive", selectedGasProfile),
-    buildDriveMode("drive_ev", vehicleProfiles.ev),
     {
-      id: "flight",
-      name: `Fly ${seat.label}`,
-      tags: ["Flight"],
-      fixedCost: (airfareTotal * seat.costMultiplier * monthAdjustment.flightFare) / passengers,
-      costPerMile: 0,
-      fixedTime: flightFixedTime * monthAdjustment.flightTime,
-      hoursPerMile: (1 / DEFAULT_FLIGHT_SPEED) * monthAdjustment.flightTime,
-      fixedCo2: 0,
-      co2PerMile: flightCo2PerMile * seat.co2Multiplier,
-      comfortBase: seat.comfortBase,
-      chargeHours: 0,
+      id: "user_intake",
+      name: `User Intake (${fluidProfile.label})`,
+      benchmarkOz: userBenchmark.benchmarkOz,
+      effectiveIntakeOz: userIntakeOz,
+      heatIndex: userBenchmark.heatIndex,
+      highDemand: userBenchmark.highDemand,
+      evaporativeMultiplier: userBenchmark.evaporativeMultiplier,
+      metabolicMultiplier: userBenchmark.metabolicMultiplier,
+      tags: ["User", "Current Fluid"],
+    },
+    {
+      id: "peer_benchmark",
+      name: "Peer Benchmark",
+      benchmarkOz: peerBenchmark.benchmarkOz,
+      effectiveIntakeOz: peerBenchmark.benchmarkOz,
+      heatIndex: peerBenchmark.heatIndex,
+      highDemand: peerBenchmark.highDemand,
+      evaporativeMultiplier: peerBenchmark.evaporativeMultiplier,
+      metabolicMultiplier: peerBenchmark.metabolicMultiplier,
+      tags: ["Peer", "Reference"],
+    },
+    {
+      id: "electrolyte_scenario",
+      name: "Electrolyte Scenario",
+      benchmarkOz: userBenchmark.benchmarkOz,
+      effectiveIntakeOz: electrolyteScenarioOz,
+      heatIndex: userBenchmark.heatIndex,
+      highDemand: userBenchmark.highDemand,
+      evaporativeMultiplier: userBenchmark.evaporativeMultiplier,
+      metabolicMultiplier: userBenchmark.metabolicMultiplier,
+      tags: ["Alternate", "Fluid Coefficient"],
     },
   ];
 }
 
-function scoreComfortEase(mode, hours) {
-  const base = Number(mode.comfortBase || 70);
-  const durationPenalty = Math.max(0, hours - 2) * 1.25;
-  const chargingPenalty = Number(mode.chargeHours || 0) * 1.1;
-  return Math.max(1, Math.min(100, base - durationPenalty - chargingPenalty));
-}
+function evaluateMode(mode) {
+  const hydrationGapOz = Math.max(0, mode.benchmarkOz - mode.effectiveIntakeOz);
+  const coveragePct = mode.benchmarkOz > 0 ? clamp((mode.effectiveIntakeOz / mode.benchmarkOz) * 100, 0, 200) : 0;
+  const riskScore = clamp(hydrationGapOz * 4 + (mode.highDemand ? 15 : 0), 0, 100);
 
-function evaluateMode(mode, distance, valueOfTime) {
-  const monetaryCost = mode.fixedCost + mode.costPerMile * distance;
-  const hours = mode.fixedTime + mode.hoursPerMile * distance;
-  const co2 = mode.fixedCo2 + mode.co2PerMile * distance;
-  const comfortEase = scoreComfortEase(mode, hours);
   return {
     ...mode,
-    distance,
-    monetaryCost,
-    hours,
-    co2,
-    comfortEase,
-    generalizedCost: monetaryCost + valueOfTime * hours,
+    hydrationGapOz,
+    coveragePct,
+    riskScore,
   };
 }
 
@@ -352,238 +215,83 @@ function buildCard(result, flags, index) {
   card.style.animationDelay = `${0.05 * index}s`;
 
   const pills = [];
-  if (result.id === "drive" && flags.driveGreenerThanFlight) pills.push('<span class="pill greener-bronze">Greener Than Flight</span>');
-  if (flags.bestValue === result.id) pills.push('<span class="pill best-value">Best Value</span>');
-  if (flags.bestComfort === result.id) pills.push('<span class="pill best-comfort">Best Comfort</span>');
-  if (flags.bestCost === result.id) pills.push('<span class="pill best-cost">Lowest $</span>');
-  if (flags.bestCo2 === result.id) pills.push('<span class="pill best-co2">Greenest</span>');
-  if (flags.bestTime === result.id) pills.push('<span class="pill best-time">Fastest</span>');
+  if (result.highDemand) pills.push('<span class="pill best-time">High Demand</span>');
+  if (flags.bestCoverage === result.id) pills.push('<span class="pill best-comfort">Best Coverage</span>');
+  if (flags.lowestGap === result.id) pills.push('<span class="pill best-cost">Lowest Gap</span>');
+  if (flags.lowestRisk === result.id) pills.push('<span class="pill best-co2">Lowest Risk</span>');
 
   card.innerHTML = `
     <h4>${result.name}</h4>
     <div>${pills.join(" ")}</div>
-    <p class="metric">Out-of-pocket cost (per person): <strong>${money(result.monetaryCost)}</strong></p>
-    <p class="metric">Carbon (per person): <strong>${num(result.co2)} kg</strong></p>
-    <p class="metric">Door-to-door time: <strong>${num(result.hours)} h</strong>${result.chargeHours ? ` <span class="muted">(includes ${num(result.chargeHours)} h charging burden)</span>` : ""}</p>
-    <p class="metric">Generalized cost (per person): <strong>${money(result.generalizedCost)}</strong></p>
+    <p class="metric">Benchmark target: <strong>${num(result.benchmarkOz, 1)} oz</strong></p>
+    <p class="metric">Effective intake: <strong>${num(result.effectiveIntakeOz, 1)} oz</strong></p>
+    <p class="metric">Hydration gap: <strong>${num(result.hydrationGapOz, 1)} oz</strong></p>
+    <p class="metric">Coverage: <strong>${num(result.coveragePct, 0)}%</strong></p>
+    <p class="metric">Risk score: <strong>${num(result.riskScore, 0)}</strong></p>
   `;
+
   return card;
 }
 
 function normalizedBars(results) {
   const dims = [
-    { key: "monetaryCost", label: "Cost (per person)", cls: "cost", suffix: "$" },
-    { key: "co2", label: "Carbon (per person)", cls: "co2", suffix: "kg" },
-    { key: "hours", label: "Time", cls: "time", suffix: "h" },
+    { key: "benchmarkOz", label: "Benchmark", cls: "cost", suffix: "oz" },
+    { key: "effectiveIntakeOz", label: "Effective Intake", cls: "co2", suffix: "oz" },
+    { key: "hydrationGapOz", label: "Gap", cls: "time", suffix: "oz" },
   ];
 
   chartEl.innerHTML = "";
 
   dims.forEach((dim) => {
-    const max = Math.max(...results.map((r) => r[dim.key]));
+    const max = Math.max(...results.map((r) => r[dim.key]), 1);
 
-    const dimLabel = dim.label;
     results.forEach((r) => {
       const row = document.createElement("div");
       row.className = "bar-row";
-      const pct = max === 0 ? 0 : (r[dim.key] / max) * 100;
+      const pct = (r[dim.key] / max) * 100;
 
       row.innerHTML = `
         <span>${r.name}</span>
         <div class="bar-wrap"><div class="bar ${dim.cls}" style="width:${pct}%;"></div></div>
-        <span>${dimLabel}: ${num(r[dim.key])} ${dim.suffix}</span>
+        <span>${dim.label}: ${num(r[dim.key], 1)} ${dim.suffix}</span>
       `;
       chartEl.appendChild(row);
     });
   });
 }
 
-function breakEvenDistance(a, b, key) {
-  const denom = a[key].perMile - b[key].perMile;
-  if (Math.abs(denom) < 1e-9) {
-    return null;
-  }
-  const d = (b[key].fixed - a[key].fixed) / denom;
-  if (d <= 0 || !Number.isFinite(d)) {
-    return null;
-  }
-  return d;
-}
-
-function buildCostModel(result, valueOfTime) {
-  return {
-    cost: {
-      fixed: result.fixedCost,
-      perMile: result.costPerMile,
-    },
-    co2: {
-      fixed: result.fixedCo2,
-      perMile: result.co2PerMile,
-    },
-    generalized: {
-      fixed: result.fixedCost + valueOfTime * result.fixedTime,
-      perMile: result.costPerMile + valueOfTime * result.hoursPerMile,
-    },
-  };
-}
-
-function buildInsights(results, valueOfTime) {
-  const modeById = Object.fromEntries(results.map((r) => [r.id, r]));
-  const drive = modeById.drive;
-  const flight = modeById.flight;
-
-  const driveModel = buildCostModel(drive, valueOfTime);
-  const flightModel = buildCostModel(flight, valueOfTime);
+function buildInsights(results) {
+  const user = results.find((r) => r.id === "user_intake") || results[0];
+  const peer = results.find((r) => r.id === "peer_benchmark") || results[0];
+  const electrolyte = results.find((r) => r.id === "electrolyte_scenario") || results[0];
 
   const insights = [];
 
-  const costDriveFlight = breakEvenDistance(driveModel, flightModel, "cost");
-  const co2DriveFlight = breakEvenDistance(driveModel, flightModel, "co2");
-  const genDriveFlight = breakEvenDistance(driveModel, flightModel, "generalized");
-
-  if (costDriveFlight) {
-    insights.push(`Drive vs flight per-person cost break-even: ~${num(costDriveFlight, 0)} miles.`);
+  if (user.highDemand) {
+    insights.push(
+      `High Demand alert: heat index is ${num(user.heatIndex, 1)}°F, so hydration targets are elevated for current conditions.`
+    );
   } else {
-    insights.push("Drive vs flight per-person cost: no positive break-even in current assumptions.");
+    insights.push(`Heat index is ${num(user.heatIndex, 1)}°F; demand remains below the High Demand trigger.`);
   }
 
-  if (co2DriveFlight) {
-    insights.push(`Drive vs flight per-person carbon break-even: ~${num(co2DriveFlight, 0)} miles.`);
-  } else {
-    insights.push("Drive vs flight per-person carbon: one mode stays cleaner across the full range.");
-  }
-
-  if (genDriveFlight) {
-    insights.push(`Drive vs flight generalized value break-even: ~${num(genDriveFlight, 0)} miles.`);
-  } else {
-    insights.push("Drive vs flight generalized value: no positive switching point under current time value.");
-  }
-
-  const lowestMonetary = results.reduce((best, r) => (r.monetaryCost < best.monetaryCost ? r : best), results[0]);
   insights.push(
-    `At ${num(results[0].distance, 0)} miles, lowest per-person out-of-pocket mode is ${lowestMonetary.name} at ${money(
-      lowestMonetary.monetaryCost
-    )}.`
+    `User benchmark is ${num(user.benchmarkOz, 1)} oz with an estimated gap of ${num(user.hydrationGapOz, 1)} oz in the current metabolic window.`
   );
 
-  const lowestGeneralized = results.reduce((best, r) => (r.generalizedCost < best.generalizedCost ? r : best), results[0]);
-  insights.push(`At ${num(results[0].distance, 0)} miles, best combined money+time mode is ${lowestGeneralized.name}.`);
+  const peerDelta = user.benchmarkOz - peer.benchmarkOz;
+  if (peerDelta >= 0) {
+    insights.push(`User benchmark is ${num(peerDelta, 1)} oz above the peer reference profile under the same environment.`);
+  } else {
+    insights.push(`User benchmark is ${num(Math.abs(peerDelta), 1)} oz below the peer reference profile under the same environment.`);
+  }
+
+  const electrolyteGain = electrolyte.effectiveIntakeOz - user.effectiveIntakeOz;
+  insights.push(
+    `Switching to an electrolyte coefficient at the same volume would raise effective intake by ${num(electrolyteGain, 1)} oz.`
+  );
 
   return insights;
-}
-
-function render() {
-  const distance = value("distanceMiles");
-  const valueOfTime = value("passengerWage") * (value("wageTimeFactor") / 100);
-  const monthKey = value("tripMonth") || "avg";
-  const monthAdjustment = MONTH_ADJUSTMENTS[monthKey] || MONTH_ADJUSTMENTS.avg;
-
-  const results = buildModeModels().map((mode) => evaluateMode(mode, distance, valueOfTime));
-  const byId = Object.fromEntries(results.map((r) => [r.id, r]));
-
-  const flags = {
-    driveGreenerThanFlight: Boolean(byId.drive && byId.flight && byId.drive.co2 < byId.flight.co2),
-    bestValue: winnerId(results, "generalizedCost"),
-    bestComfort: winnerIdMax(results, "comfortEase"),
-    bestCost: winnerId(results, "monetaryCost"),
-    bestCo2: winnerId(results, "co2"),
-    bestTime: winnerId(results, "hours"),
-  };
-
-  cardsEl.innerHTML = "";
-  results.forEach((result, index) => cardsEl.appendChild(buildCard(result, flags, index)));
-
-  normalizedBars(results);
-
-  const insights = buildInsights(results, valueOfTime);
-  insightListEl.innerHTML = insights.map((msg) => `<li>${msg}</li>`).join("");
-  ideaListEl.innerHTML = comparisonIdeas.map((msg) => `<li>${msg}</li>`).join("");
-  effectiveVotEl.textContent = `${money(valueOfTime)}/hour`;
-
-  const seat = seatProfiles[value("seatType")];
-  const passengers = Math.max(1, Number(value("passengers") || 1));
-  const airfare = (Number(value("airfareTotal") || 0) * seat.costMultiplier * monthAdjustment.flightFare) / passengers;
-  const effectivePerMile = distance > 0 ? airfare / distance : 0;
-  effectiveFlightFareEl.textContent = `${money(effectivePerMile)}/mi`;
-
-  updateOutputLabels();
-}
-
-async function fetchTripEstimate() {
-  if (!state.fromCity || !state.toCity) {
-    if (tripEstimateEl) tripEstimateEl.textContent = 'Please enter both origin and destination.';
-    return;
-  }
-
-  if (tripEstimateEl) tripEstimateEl.textContent = 'Estimating distance...';
-
-  try {
-    await loadAirports();
-    await ensureAirportsFull();
-    normalizeAirportInputValue(state.fromCity);
-    normalizeAirportInputValue(state.toCity);
-    const sourceList = getAirportSearchList();
-
-    if (!sourceList.length) {
-      if (tripEstimateEl) tripEstimateEl.textContent = 'Airport lookup data is still loading. Please try again in a moment.';
-      return;
-    }
-
-    const fromMatch = resolveAirport(value('fromCity'), sourceList);
-    const toMatch = resolveAirport(value('toCity'), sourceList);
-
-    if (!fromMatch || !toMatch) {
-      if (tripEstimateEl) {
-        tripEstimateEl.textContent = 'Could not match one or both airports. Try a city name or IATA code (e.g., SEA, PHX).';
-      }
-      return;
-    }
-
-    const distanceMiles = Math.round(haversine(fromMatch.lat, fromMatch.lon, toMatch.lat, toMatch.lon) * 10) / 10;
-
-    state.fromCity.value = `${fromMatch.name} (${fromMatch.code})`;
-    state.toCity.value = `${toMatch.name} (${toMatch.code})`;
-    if (state.distanceMiles) {
-      state.distanceMiles.value = Math.round(distanceMiles);
-    }
-
-    displayEstimate({
-      distanceMiles,
-      from: {
-        ...fromMatch,
-        display: `${fromMatch.name} (${fromMatch.code})`,
-      },
-      to: {
-        ...toMatch,
-        display: `${toMatch.name} (${toMatch.code})`,
-      },
-    });
-    render();
-  } catch (err) {
-    if (tripEstimateEl) tripEstimateEl.textContent = `Estimate error: ${err.message}`;
-  }
-}
-
-function displayEstimate(data) {
-  if (!tripEstimateEl) return;
-  const parts = [];
-  if (data && data.from) {
-    const f = data.from;
-    parts.push(`<div><strong>From:</strong> ${f.display || `${f.name} (${f.code})`} ${f.lat ? `&nbsp;<span class="muted">(${num(f.lat,3)}, ${num(f.lon,3)})</span>` : ''}</div>`);
-  }
-  if (data && data.to) {
-    const t = data.to;
-    parts.push(`<div><strong>To:</strong> ${t.display || `${t.name} (${t.code})`} ${t.lat ? `&nbsp;<span class="muted">(${num(t.lat,3)}, ${num(t.lon,3)})</span>` : ''}</div>`);
-  }
-  if (data && typeof data.distanceMiles === 'number') {
-    parts.push(`<strong>Estimated distance:</strong> ${num(data.distanceMiles, 1)} mi`);
-  }
-  if (parts.length === 0) {
-    tripEstimateEl.textContent = 'No estimate available.';
-    return;
-  }
-
-  tripEstimateEl.innerHTML = parts.join('');
 }
 
 function updateOutputLabels() {
@@ -592,24 +300,49 @@ function updateOutputLabels() {
     const v = value(id);
 
     const unitMap = {
-      distanceMiles: `${num(v, 0)} mi`,
-      passengerWage: `$${num(v, 0)}/h`,
-      wageTimeFactor: `${num(v, 0)}%`,
-      gasPrice: `$${num(v)}/gal`,
-      electricityPrice: `$${num(v)}/kWh`,
-      publicElectricityPrice: `$${num(v)}/kWh`,
-      publicChargeShare: `${num(v, 0)}%`,
-      gridIntensity: `${num(v)} kg/kWh`,
-      airfareTotal: `$${num(v, 0)}`,
-      driveSpeed: `${num(v, 0)} mph`,
-      driveFixedCost: `$${num(v, 0)}/trip`,
-      driveDeadheadHours: `${num(v)} h`,
-      flightFixedTime: `${num(v)} h`,
-      flightCo2PerMile: `${num(v)} kg/mi`,
+      weightLbs: `${num(v, 0)} lbs`,
+      ageYears: `${num(v, 0)} years`,
+      tempF: `${num(v, 0)} °F`,
+      humidity: `${num(v, 0)}%`,
+      dewPointF: `${num(v, 0)} °F`,
+      altitudeFt: `${num(v, 0)} ft`,
+      hoursSinceIntake: `${num(v, 1)} h`,
+      intakeVolumeMl: `${num(v, 0)} ml`,
+      peerWeightLbs: `${num(v, 0)} lbs`,
     };
 
     node.textContent = unitMap[id] ?? String(v);
   });
+}
+
+function render() {
+  const results = buildModeModels().map((mode) => evaluateMode(mode));
+
+  const flags = {
+    bestCoverage: winnerIdMax(results, "coveragePct"),
+    lowestGap: winnerId(results, "hydrationGapOz"),
+    lowestRisk: winnerId(results, "riskScore"),
+  };
+
+  cardsEl.innerHTML = "";
+  results.forEach((result, index) => cardsEl.appendChild(buildCard(result, flags, index)));
+
+  normalizedBars(results);
+
+  const insights = buildInsights(results);
+  insightListEl.innerHTML = insights.map((msg) => `<li>${msg}</li>`).join("");
+  ideaListEl.innerHTML = comparisonIdeas.map((msg) => `<li>${msg}</li>`).join("");
+
+  const lead = results.find((r) => r.id === "user_intake") || results[0];
+  effectiveHeatIndexEl.textContent = `${num(lead.heatIndex, 1)} °F`;
+  effectiveEvapMultiplierEl.textContent = `${num(lead.evaporativeMultiplier, 2)}×`;
+
+  if (tripEstimateEl) {
+    const highDemandText = lead.highDemand ? "YES" : "No";
+    tripEstimateEl.innerHTML = `<strong>High Demand:</strong> ${highDemandText} <span class="muted">(threshold: heat index > ${HIGH_DEMAND_HEAT_INDEX}°F)</span>`;
+  }
+
+  updateOutputLabels();
 }
 
 ids.forEach((id) => {
@@ -621,24 +354,17 @@ ids.forEach((id) => {
 
 document.getElementById("resetBtn").addEventListener("click", () => {
   const defaults = {
-    distanceMiles: "600",
-    passengerWage: "35",
-    wageTimeFactor: "100",
-    gasPrice: "3.9",
-    electricityPrice: "0.14",
-    publicElectricityPrice: "0.48",
-    publicChargeShare: "40",
-    gridIntensity: "0.38",
-    seatType: "economy",
-    tripMonth: "avg",
-    vehicleType: "midsize",
-    passengers: "1",
-    driveSpeed: "58",
-    driveFixedCost: "25",
-    driveDeadheadHours: "0.4",
-    airfareTotal: "200",
-    flightFixedTime: "2.4",
-    flightCo2PerMile: "0.22",
+    weightLbs: "180",
+    ageYears: "38",
+    activityLevel: "moderate",
+    tempF: "104",
+    humidity: "14",
+    dewPointF: "33",
+    altitudeFt: "1086",
+    hoursSinceIntake: "3",
+    intakeVolumeMl: "900",
+    fluidType: "water",
+    peerWeightLbs: "170",
   };
 
   Object.entries(defaults).forEach(([id, val]) => {
@@ -647,216 +373,5 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 
   render();
 });
-
-const estimateBtn = document.getElementById('getEstimateBtn');
-if (estimateBtn) estimateBtn.addEventListener('click', fetchTripEstimate);
-
-const estimateAirfareBtn = document.getElementById('estimateAirfareBtn');
-if (estimateAirfareBtn) estimateAirfareBtn.addEventListener('click', estimateAirfareFromDistance);
-
-async function loadAirports() {
-  if (airportsSmallLoaded) return airportsSmall;
-  if (airportsSmallLoadingPromise) return airportsSmallLoadingPromise;
-
-  const airportsListEl = document.getElementById("airportsList");
-  if (!airportsListEl) return [];
-
-  airportsSmallLoadingPromise = fetch("airports-small.json")
-    .then((res) => {
-      if (!res.ok) return [];
-      return res.json();
-    })
-    .then((airports) => {
-      airportsSmall = Array.isArray(airports) ? airports : [];
-      airportsListEl.innerHTML = "";
-      airportsSmall.forEach((a) => {
-        const option = document.createElement("option");
-        option.value = `${a.name} (${a.code})`;
-        option.textContent = `${a.name} (${a.code})`;
-        airportsListEl.appendChild(option);
-      });
-      airportsSmallLoaded = true;
-      airportsSmallLoadingPromise = null;
-      return airportsSmall;
-    })
-    .catch((e) => {
-      console.warn("Failed to load airports list", e);
-      airportsSmall = [];
-      airportsSmallLoadingPromise = null;
-      return airportsSmall;
-    });
-
-  return airportsSmallLoadingPromise;
-}
-
-loadAirports();
-render();
-
-// Lazy-load the full airports list for fuzzy searching when needed
-function ensureAirportsFull() {
-  if (airportsFullLoaded) return Promise.resolve(airportsFull);
-  if (airportsLoadingPromise) return airportsLoadingPromise;
-  airportsLoadingPromise = fetch('airports.json')
-    .then((r) => (r.ok ? r.json() : []))
-    .then((list) => {
-      airportsFull = list || [];
-      airportsFullLoaded = true;
-      airportsLoadingPromise = null;
-      return airportsFull;
-    })
-    .catch((err) => {
-      console.warn('Failed to load full airports list', err);
-      airportsFull = [];
-      airportsFullLoaded = true;
-      airportsLoadingPromise = null;
-      return airportsFull;
-    });
-  return airportsLoadingPromise;
-}
-
-function fuzzySearchAirports(q, maxResults = SUGGESTION_MAX) {
-  if (!q) return [];
-  const qq = q.toLowerCase();
-  const results = [];
-  // prioritize exact code, startsWith name/code, then includes
-  const exactCode = airportsFull.find((a) => a.code.toLowerCase() === qq);
-  if (exactCode) results.push(exactCode);
-
-  const starts = [];
-  const includes = [];
-  for (const a of airportsFull) {
-    const name = (a.name || '').toLowerCase();
-    const code = (a.code || '').toLowerCase();
-    if (code === qq) continue; // already added
-    if (name.startsWith(qq) || code.startsWith(qq)) starts.push(a);
-    else if (name.includes(qq) || code.includes(qq)) includes.push(a);
-  }
-
-  starts.sort((x, y) => x.name.localeCompare(y.name));
-  includes.sort((x, y) => x.name.localeCompare(y.name));
-
-  const merged = results.concat(starts, includes).slice(0, maxResults);
-  return merged;
-}
-
-function renderSuggestions(suggestionsEl, items, inputEl) {
-  suggestionsEl.innerHTML = '';
-  if (!items || items.length === 0) {
-    suggestionsEl.style.display = 'none';
-    suggestionsEl.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  items.forEach((a, idx) => {
-    const div = document.createElement('div');
-    div.className = 'airport-suggestion-item';
-    div.setAttribute('role', 'option');
-    div.setAttribute('data-code', a.code);
-    div.setAttribute('data-lat', a.lat || '');
-    div.setAttribute('data-lon', a.lon || '');
-    div.textContent = `${a.name} (${a.code})`;
-    div.addEventListener('mousedown', (ev) => {
-      // use mousedown to capture before blur
-      ev.preventDefault();
-      inputEl.value = `${a.name} (${a.code})`;
-      suggestionsEl.innerHTML = '';
-      suggestionsEl.style.display = 'none';
-      suggestionsEl.setAttribute('aria-hidden', 'true');
-      // update distance output if desired (keep current behaviour)
-    });
-    suggestionsEl.appendChild(div);
-  });
-  suggestionsEl.style.display = 'block';
-  suggestionsEl.setAttribute('aria-hidden', 'false');
-}
-
-function hideSuggestions(el) {
-  if (!el) return;
-  el.innerHTML = '';
-  el.style.display = 'none';
-  el.setAttribute('aria-hidden', 'true');
-}
-
-function handleAirportInput(e) {
-  const inputEl = e.target;
-  const id = inputEl.id;
-  const suggestionsEl = document.getElementById(id === 'fromCity' ? 'fromSuggestions' : 'toSuggestions');
-  const q = String(inputEl.value || '').trim();
-
-  // If empty, hide
-  if (!q) {
-    hideSuggestions(suggestionsEl);
-    return;
-  }
-
-  // If user typed a 3-letter IATA code, prefer exact-match suggestions,
-  // but don't overwrite what they typed while they're still editing.
-  const iataMatch = q.match(/^([A-Za-z]{3})$/);
-  if (iataMatch) {
-    const code = iataMatch[1].toLowerCase();
-    const mergedList = getAirportSearchList();
-    const exactMatches = mergedList.filter((a) => a.code.toLowerCase() === code).slice(0, 1);
-    if (exactMatches.length) {
-      renderSuggestions(suggestionsEl, exactMatches, inputEl);
-      return;
-    }
-    return;
-  }
-
-  // Debounce fuzzy search to keep UI snappy
-  if (suggestionDebounce[id]) clearTimeout(suggestionDebounce[id]);
-  suggestionDebounce[id] = setTimeout(() => {
-    ensureAirportsFull().then(() => {
-      const matches = fuzzySearchAirports(q, SUGGESTION_MAX);
-      renderSuggestions(suggestionsEl, matches, inputEl);
-    });
-  }, 150);
-}
-
-function handleAirportKeydown(e) {
-  const inputEl = e.target;
-  const id = inputEl.id;
-  const suggestionsEl = document.getElementById(id === 'fromCity' ? 'fromSuggestions' : 'toSuggestions');
-  const items = suggestionsEl ? Array.from(suggestionsEl.querySelectorAll('.airport-suggestion-item')) : [];
-  if (!items.length) return;
-  const activeIdx = items.findIndex((it) => it.classList.contains('active'));
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    const next = (activeIdx + 1) % items.length;
-    items.forEach((it) => it.classList.remove('active'));
-    items[next].classList.add('active');
-    items[next].scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    const prev = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
-    items.forEach((it) => it.classList.remove('active'));
-    items[prev].classList.add('active');
-    items[prev].scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter') {
-    if (activeIdx >= 0) {
-      e.preventDefault();
-      const sel = items[activeIdx];
-      inputEl.value = sel.textContent;
-      hideSuggestions(suggestionsEl);
-    }
-  } else if (e.key === 'Escape') {
-    hideSuggestions(suggestionsEl);
-  }
-}
-
-// Attach input handlers for both From and To fields
-const fromEl = document.getElementById('fromCity');
-const toEl = document.getElementById('toCity');
-if (fromEl) {
-  fromEl.addEventListener('input', handleAirportInput);
-  fromEl.addEventListener('keydown', handleAirportKeydown);
-  fromEl.addEventListener('change', () => normalizeAirportInputValue(fromEl));
-  fromEl.addEventListener('blur', (ev) => setTimeout(() => hideSuggestions(document.getElementById('fromSuggestions')), 150));
-}
-if (toEl) {
-  toEl.addEventListener('input', handleAirportInput);
-  toEl.addEventListener('keydown', handleAirportKeydown);
-  toEl.addEventListener('change', () => normalizeAirportInputValue(toEl));
-  toEl.addEventListener('blur', (ev) => setTimeout(() => hideSuggestions(document.getElementById('toSuggestions')), 150));
-}
 
 render();
