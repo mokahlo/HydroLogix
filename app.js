@@ -24,7 +24,6 @@ const ids = [
   "hoursSinceIntake",
   "intakeVolumeMl",
   "fluidType",
-  "peerWeightLbs",
 ];
 
 const state = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -112,7 +111,8 @@ function extractFirstFinite(values) {
 }
 
 async function fetchWeatherByCityName(cityName) {
-  const query = String(cityName || "").trim();
+  const raw = String(cityName || "").trim();
+  const query = raw.split(",")[0].trim();
   if (!query) {
     throw new Error("Please enter a city name first.");
   }
@@ -153,6 +153,7 @@ async function fetchWeatherByCityName(cityName) {
   const fallbackDewPoint = extractFirstFinite(weather?.hourly?.dew_point_2m);
 
   return {
+    normalizedQuery: query,
     cityLabel: [place.name, place.admin1, place.country_code].filter(Boolean).join(", "),
     tempF: toFiniteNumber(weather?.current?.temperature_2m) ?? fallbackTemp,
     humidity: toFiniteNumber(weather?.current?.relative_humidity_2m) ?? fallbackHumidity,
@@ -170,6 +171,10 @@ async function populateEnvironmentalFactorsFromCity() {
     weatherStatus(`Looking up current weather for ${city}...`);
 
     const data = await fetchWeatherByCityName(city);
+
+    if (state.cityName && data.normalizedQuery) {
+      state.cityName.value = data.normalizedQuery;
+    }
 
     const updates = [
       setFieldIfFinite("tempF", data.tempF, (v) => Math.round(v)),
@@ -297,12 +302,10 @@ function buildModeModels() {
 
   const hoursSinceIntake = Number(value("hoursSinceIntake") || 0);
   const userWeightLbs = Number(value("weightLbs") || 0);
-  const peerWeightLbs = Number(value("peerWeightLbs") || 0);
   const userAgeYears = Number(value("ageYears") || 0);
   const intakeVolumeMl = Number(value("intakeVolumeMl") || 0);
 
   const userBenchmark = calculateHydrationBenchmark(userWeightLbs, userAgeYears, factors, hoursSinceIntake);
-  const peerBenchmark = calculateHydrationBenchmark(peerWeightLbs, 35, factors, hoursSinceIntake);
 
   const userIntakeOz = mlToOz(intakeVolumeMl) * fluidProfile.coefficient;
   const electrolyteScenarioOz = mlToOz(intakeVolumeMl) * FLUID_COEFFICIENTS.electrolyte.coefficient;
@@ -318,17 +321,6 @@ function buildModeModels() {
       evaporativeMultiplier: userBenchmark.evaporativeMultiplier,
       metabolicMultiplier: userBenchmark.metabolicMultiplier,
       tags: ["User", "Current Fluid"],
-    },
-    {
-      id: "peer_benchmark",
-      name: "Peer Benchmark",
-      benchmarkOz: peerBenchmark.benchmarkOz,
-      effectiveIntakeOz: peerBenchmark.benchmarkOz,
-      heatIndex: peerBenchmark.heatIndex,
-      highDemand: peerBenchmark.highDemand,
-      evaporativeMultiplier: peerBenchmark.evaporativeMultiplier,
-      metabolicMultiplier: peerBenchmark.metabolicMultiplier,
-      tags: ["Peer", "Reference"],
     },
     {
       id: "electrolyte_scenario",
@@ -418,7 +410,6 @@ function normalizedBars(results) {
 
 function buildInsights(results) {
   const user = results.find((r) => r.id === "user_intake") || results[0];
-  const peer = results.find((r) => r.id === "peer_benchmark") || results[0];
   const electrolyte = results.find((r) => r.id === "electrolyte_scenario") || results[0];
 
   const insights = [];
@@ -434,13 +425,6 @@ function buildInsights(results) {
   insights.push(
     `User benchmark is ${num(user.benchmarkOz, 1)} oz with an estimated gap of ${num(user.hydrationGapOz, 1)} oz in the current metabolic window.`
   );
-
-  const peerDelta = user.benchmarkOz - peer.benchmarkOz;
-  if (peerDelta >= 0) {
-    insights.push(`User benchmark is ${num(peerDelta, 1)} oz above the peer reference profile under the same environment.`);
-  } else {
-    insights.push(`User benchmark is ${num(Math.abs(peerDelta), 1)} oz below the peer reference profile under the same environment.`);
-  }
 
   const electrolyteGain = electrolyte.effectiveIntakeOz - user.effectiveIntakeOz;
   insights.push(
@@ -464,7 +448,6 @@ function updateOutputLabels() {
       altitudeFt: `${num(v, 0)} ft`,
       hoursSinceIntake: `${num(v, 1)} h`,
       intakeVolumeMl: `${num(v, 0)} ml`,
-      peerWeightLbs: `${num(v, 0)} lbs`,
     };
 
     node.textContent = unitMap[id] ?? String(v);
@@ -510,7 +493,7 @@ ids.forEach((id) => {
 
 document.getElementById("resetBtn").addEventListener("click", () => {
   const defaults = {
-    cityName: "Phoenix, AZ",
+    cityName: "Phoenix",
     weightLbs: "180",
     ageYears: "38",
     sexAssignedAtBirth: "female",

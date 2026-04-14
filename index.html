@@ -17,7 +17,7 @@
     <div class="bg-orb bg-orb-b"></div>
     <header class="hero">
       <p class="eyebrow">Hydration Benchmark <span id="appVersion" class="version-badge" title="Semantic versioning: major.minor.patch">v1.0.0</span></p>
-      <h1>HydroLogix: User Intake vs Peer Benchmark</h1>
+      <h1>HydroLogix: User Intake Hydration Benchmark</h1>
       <p class="subhead">
         Compare hydration intake against climate-adjusted benchmark needs for desert conditions.
         Tune weight, temperature, humidity, metabolic window, and fluid type coefficients.
@@ -32,7 +32,7 @@
         </div>
 
         <p class="input-guide">
-          <strong>Quick start:</strong> Enter a city and click <em>Auto-fill Weather by City</em>, then adjust personal factors.
+          <strong>Quick start:</strong> Enter a city name and click <em>Auto-fill Weather by City</em>, then adjust personal factors.
           Your benchmark updates automatically as each input changes.
         </p>
 
@@ -84,9 +84,9 @@
 
           <label>
             City name (weather source)
-            <input id="cityName" type="text" value="Phoenix, AZ" placeholder="e.g., Phoenix, AZ" />
+            <input id="cityName" type="text" value="Phoenix" placeholder="e.g., Phoenix" />
             <button id="loadWeatherBtn" type="button" class="estimate-btn">Auto-fill Weather by City</button>
-            <span class="hint">Type a city like <strong>Phoenix, AZ</strong> or <strong>Denver</strong>. This browser-only lookup fills temperature, humidity, dew point, and altitude.</span>
+            <span class="hint">Type only a city name like <strong>Phoenix</strong> or <strong>Denver</strong> (no state/country text). This browser-only lookup fills temperature, humidity, dew point, and altitude.</span>
             <span id="weatherLocation" class="muted"></span>
             <span id="weatherStatus" class="muted"></span>
           </label>
@@ -143,12 +143,6 @@
             <span class="hint">Coefficient adjusts effective hydration: water baseline (1.0), coffee lower (0.8), electrolytes higher (1.2).</span>
           </label>
 
-          <label>
-            Peer benchmark weight (lbs)
-            <input id="peerWeightLbs" type="number" min="60" max="400" step="1" value="170" />
-            <span data-output="peerWeightLbs"></span>
-            <span class="hint">Reference person used for comparison cards. Try values near your demographic baseline.</span>
-          </label>
         </div>
       </section>
 
