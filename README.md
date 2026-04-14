@@ -13,10 +13,11 @@ HydroLogix is an interactive hydration benchmarking app focused on hot, dry Sout
   - altitude
   - activity level
 - Recommends hourly ideal intake rates and estimated dehydration rates from physiology + environment
-- Uses `hours outside`; when set to `0`, model temperature falls back to room temperature
+- Uses typed `hours outside`; when set to `0`, model temperature falls back to room temperature
 - Triggers a **High Demand** state when heat index crosses threshold
 - Renders comparison cards, normalized bars, and actionable insights
-- Auto-fills environmental factors from **city name only** in-browser (Open-Meteo geocoding + weather APIs)
+- Uses baseline component water-loss rates of **0.5 oz/h breathing**, **1.2 oz/h evaporation/sweat**, and **1.0 oz/h waste**
+- Auto-fills environmental factors from **location input** in-browser (city, city+state, or US ZIP via Open-Meteo geocoding + weather APIs)
 - Supports a US/SI unit toggle for unit-based entries (weight, temperature, dew point, and altitude)
 
 ## Core logic
@@ -38,7 +39,7 @@ Use hydration intake records shaped like:
 ### Browser-only (no server hosting)
 
 1. Open `index.html` directly in your browser (or host as static files only).
-2. Enter a city name only (for example, `Phoenix`) and click **Auto-fill Weather by City**.
+2. Enter a location (for example, `Phoenix`, `Phoenix, AZ`, or `85004`) and click **Auto-fill Weather**.
 3. Environmental factors are fetched client-side and applied to the hydration model.
 
 ### Optional Node local server

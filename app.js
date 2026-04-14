@@ -1,7 +1,10 @@
 // Semantic versioning: major.minor.patch
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.2";
 const HIGH_DEMAND_HEAT_INDEX = 105;
 const ROOM_TEMP_F = 72;
+const BASE_BREATHING_LOSS_OZ_PER_HOUR = 0.5;
+const BASE_EVAPORATION_LOSS_OZ_PER_HOUR = 1.2;
+const BASE_WASTE_LOSS_OZ_PER_HOUR = 1.0;
 
 const ids = [
   "unitSystem",
@@ -15,6 +18,7 @@ const ids = [
   "humidity",
   "dewPointF",
   "altitudeFt",
+  "hoursOutside",
 ];
 
 const state = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -202,8 +206,57 @@ function extractFirstFinite(values) {
 
 async function fetchWeatherByCityName(cityName) {
   const raw = String(cityName || "").trim();
-  const query = raw.split(",")[0].trim();
-  if (!query) throw new Error("Please enter a city name first.");
+  const query = raw;
+  if (!query) throw new Error("Please enter a location first (city, city/state, or ZIP).");
+
+  const zipMatch = query.match(/^(\d{5})(?:-\d{4})?$/);
+  if (zipMatch) {
+    const zip5 = zipMatch[1];
+    try {
+      const zipRes = await fetch(`https://api.zippopotam.us/us/${zip5}`);
+      if (zipRes.ok) {
+        const zipData = await zipRes.json();
+        const place = Array.isArray(zipData?.places) ? zipData.places[0] : null;
+        const latitude = toFiniteNumber(place?.latitude);
+        const longitude = toFiniteNumber(place?.longitude);
+
+        if (latitude !== null && longitude !== null) {
+          const weatherUrl =
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+            `&current=temperature_2m,relative_humidity_2m,dew_point_2m` +
+            `&current_weather=true&hourly=temperature_2m,relative_humidity_2m,dew_point_2m` +
+            `&temperature_unit=fahrenheit`;
+
+          const weatherRes = await fetch(weatherUrl);
+          if (!weatherRes.ok) throw new Error("Weather service unavailable. Please try again.");
+
+          const weather = await weatherRes.json();
+          if (!weather.current && !weather.current_weather && !weather.hourly) {
+            throw new Error("Current weather data not available for this location.");
+          }
+
+          const fallbackTemp =
+            toFiniteNumber(weather?.current_weather?.temperature) ??
+            extractFirstFinite(weather?.hourly?.temperature_2m);
+          const fallbackHumidity = extractFirstFinite(weather?.hourly?.relative_humidity_2m);
+          const fallbackDewPoint = extractFirstFinite(weather?.hourly?.dew_point_2m);
+
+          return {
+            normalizedQuery: zip5,
+            cityLabel: [place["place name"], place.state, "US"].filter(Boolean).join(", "),
+            tempF: toFiniteNumber(weather?.current?.temperature_2m) ?? fallbackTemp,
+            humidity: toFiniteNumber(weather?.current?.relative_humidity_2m) ?? fallbackHumidity,
+            dewPointF: toFiniteNumber(weather?.current?.dew_point_2m) ?? fallbackDewPoint,
+            altitudeFt: toFiniteNumber(weather.elevation || 0) !== null
+              ? Number(weather.elevation || 0) * 3.28084
+              : null,
+          };
+        }
+      }
+    } catch {
+      // Fall through to geocoding-based lookup if ZIP-specific lookup fails.
+    }
+  }
 
   const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
   const geoRes = await fetch(geoUrl);
@@ -211,7 +264,7 @@ async function fetchWeatherByCityName(cityName) {
 
   const geo = await geoRes.json();
   const place = Array.isArray(geo.results) ? geo.results[0] : null;
-  if (!place) throw new Error(`No city match found for "${query}".`);
+  if (!place) throw new Error(`No location match found for "${query}".`);
 
   const weatherUrl =
     `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
@@ -224,7 +277,7 @@ async function fetchWeatherByCityName(cityName) {
 
   const weather = await weatherRes.json();
   if (!weather.current && !weather.current_weather && !weather.hourly) {
-    throw new Error("Current weather data not available for this city.");
+    throw new Error("Current weather data not available for this location.");
   }
 
   const fallbackTemp =
@@ -326,19 +379,9 @@ function calculateHydrationBenchmark(weightLbs, ageYears, factors) {
   const idealDailyOz = adjustedBaseOz * sexMultiplier * acclMultiplier * evap.multiplier;
   const idealHourlyOz = idealDailyOz / 24;
 
-  const breathingBaseMlPerHour = 10 + Math.max(0, Number(weightLbs) || 0) * 0.02;
-  const breathingMlPerHour =
-    breathingBaseMlPerHour *
-    (factors.humidity < 20 ? 1.1 : 1.0) *
-    ((factors.altitudeFt || 0) > 4000 ? 1.1 : 1.0);
-
-  const evaporationBaseMlPerHour = ({ sedentary: 35, moderate: 80, active: 140 })[
-    String(factors.activityLevel || "sedentary")
-  ] ?? 35;
-  const evaporationMlPerHour = evaporationBaseMlPerHour * evap.multiplier;
-
-  const wasteBaseMlPerHour = 30;
-  const wasteMlPerHour = wasteBaseMlPerHour * (factors.tempF > 95 ? 1.05 : 1.0);
+  const breathingMlPerHour = ozToMl(BASE_BREATHING_LOSS_OZ_PER_HOUR);
+  const evaporationMlPerHour = ozToMl(BASE_EVAPORATION_LOSS_OZ_PER_HOUR);
+  const wasteMlPerHour = ozToMl(BASE_WASTE_LOSS_OZ_PER_HOUR);
 
   const dehydrationRateMlPerHour = breathingMlPerHour + evaporationMlPerHour + wasteMlPerHour;
   const recommendedRateMlPerHour = Math.max(ozToMl(idealHourlyOz), dehydrationRateMlPerHour * 1.15);
@@ -410,15 +453,11 @@ function evaluateMode(mode) {
   };
 }
 
-function winnerId(results, key) {
-  return results.reduce((best, cur) => (cur[key] < best[key] ? cur : best), results[0]).id;
-}
-
 function winnerIdMax(results, key) {
   return results.reduce((best, cur) => (cur[key] > best[key] ? cur : best), results[0]).id;
 }
 
-function buildCard(result, flags, index) {
+function buildCard(result, index) {
   const units = unitSystem();
   const recommendedLabel = units === "si" ? `${num(result.recommendedRateMlPerHour, 0)} ml/h` : `${num(result.recommendedRateOzPerHour, 1)} oz/h`;
   const rateLabel = units === "si" ? `${num(result.dehydrationRateMlPerHour, 0)} ml/h` : `${num(result.dehydrationRateOzPerHour, 1)} oz/h`;
@@ -436,13 +475,8 @@ function buildCard(result, flags, index) {
   card.className = "card";
   card.style.animationDelay = `${0.05 * index}s`;
 
-  const pills = [];
-  if (result.highDemand) pills.push('<span class="pill best-time">High Demand</span>');
-  if (flags.lowestRisk === result.id) pills.push('<span class="pill best-co2">Current Risk Profile</span>');
-
   card.innerHTML = `
     <h4>${result.name}</h4>
-    <div>${pills.join(" ")}</div>
     <p class="metric">Ideal daily intake: <strong>${dailyLabel}</strong></p>
     <p class="metric">Recommended intake rate: <strong>${recommendedLabel}</strong></p>
     <p class="metric">Recommended day-total from rate: <strong>${recommendedDayTotalLabel}</strong></p>
@@ -556,12 +590,9 @@ function updateOutputLabels() {
 
 function render() {
   const results = buildModeModels().map((mode) => evaluateMode(mode));
-  const flags = {
-    lowestRisk: winnerId(results, "riskScore"),
-  };
 
   cardsEl.innerHTML = "";
-  results.forEach((result, index) => cardsEl.appendChild(buildCard(result, flags, index)));
+  results.forEach((result, index) => cardsEl.appendChild(buildCard(result, index)));
 
   normalizedBars(results);
 
@@ -580,7 +611,8 @@ function render() {
     const displayedEffectiveTemp = units === "si" ? fToC(lead.effectiveTempF) : lead.effectiveTempF;
     const tempUnit = units === "si" ? "°C" : "°F";
     const tempSource = lead.usedRoomTemp ? "room temperature fallback" : "ambient/weather temperature";
-    tripEstimateEl.innerHTML = `<strong>High Demand:</strong> ${lead.highDemand ? "YES" : "No"} <span class="muted">(threshold: heat index > ${thresholdText})</span><br/><span class="muted">Effective temperature: ${num(displayedEffectiveTemp, 1)}${tempUnit} (${tempSource})</span>`;
+    const demandState = lead.highDemand ? "Active" : "Not active";
+    tripEstimateEl.innerHTML = `<strong>High Demand trigger:</strong> ${demandState} <span class="muted">(activates when heat index > ${thresholdText})</span><br/><span class="muted">Effective temperature: ${num(displayedEffectiveTemp, 1)}${tempUnit} (${tempSource})</span>`;
   }
 
   updateOutputLabels();
